@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shotnest | The Future of Production</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
+        
+        body { font-family: 'Outfit', sans-serif; background: #050505; color: white; overflow-x: hidden; }
+
+        .blob { position: absolute; filter: blur(90px); z-index: -1; opacity: 0.6; animation: float 10s infinite alternate ease-in-out; }
+        .blob-1 { top: -10%; left: -10%; width: 500px; height: 500px; background: #4a90e2; }
+        .blob-2 { bottom: -10%; right: -10%; width: 600px; height: 600px; background: #7b42f6; animation-delay: 2s; }
+        @keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(30px, 50px); } }
+
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .text-gradient { 
+            background: linear-gradient(to right, #4a90e2, #c471ed, #f64f59); 
+            background-clip: text; -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; color: transparent; 
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+    <div class="blob blob-1 rounded-full"></div>
+    <div class="blob blob-2 rounded-full"></div>
+
+    <nav class="flex justify-between items-center p-8 z-10">
+        <div class="text-2xl font-bold flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <i class="fa-solid fa-layer-group text-white text-lg"></i>
+            </div>
+            <span class="tracking-tight">SHOTNEST</span>
+        </div>
+        <a href="/dashboard" class="glass px-6 py-2 rounded-full text-sm font-bold hover:bg-white/10 transition">Dashboard</a>
+    </nav>
+
+    <main class="flex-1 flex flex-col items-center justify-center text-center px-4 z-10">
+        <div class="glass px-4 py-1 rounded-full text-xs font-medium text-blue-400 mb-6 border border-blue-500/20">✨ Welcome to Shotnest 1.0</div>
+        <h1 class="text-6xl md:text-8xl font-bold mb-6 tracking-tight leading-tight">Your production.<br><span class="text-gradient">Nest it here.</span></h1>
+        <p class="opacity-60 text-lg md:text-xl max-w-2xl mb-10 font-light">The organic workspace for modern filmmakers. Write, plan, and schedule without the chaos.</p>
+        <a href="/studio" class="bg-blue-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:scale-105 transition shadow-[0_0_30px_rgba(37,99,235,0.3)]">Enter Studio</a>
+    </main>
+</body>
+</html>

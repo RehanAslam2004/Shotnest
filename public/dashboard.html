@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | Shotnest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
+        
+        body { font-family: 'Outfit', sans-serif; background: #09090b; color: #e4e4e7; }
+        .blob { position: absolute; filter: blur(100px); z-index: -1; opacity: 0.4; }
+        .blob-1 { top: -20%; right: -10%; width: 600px; height: 600px; background: #3b82f6; }
+        .blob-2 { bottom: -20%; left: -10%; width: 500px; height: 500px; background: #8b5cf6; }
+
+        .glass-panel { background: rgba(20, 20, 23, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .project-card:hover { background: rgba(255, 255, 255, 0.05); transform: translateY(-3px); }
+    </style>
+</head>
+<body class="min-h-screen p-8 md:p-16 relative overflow-x-hidden">
+    <div class="blob blob-1 rounded-full"></div>
+    <div class="blob blob-2 rounded-full"></div>
+
+    <header class="flex justify-between items-end mb-12">
+        <div>
+            <div class="text-blue-500 font-bold tracking-widest text-xs mb-2">SHOTNEST</div>
+            <h1 class="text-5xl font-bold">Dashboard</h1>
+        </div>
+        <div class="flex gap-4">
+            <a href="/" class="glass-panel px-6 py-3 rounded-full font-bold hover:scale-105 transition">Home</a>
+            <a href="/studio" class="bg-blue-600 text-white px-6 py-3 rounded-full font-bold hover:scale-105 transition shadow-lg shadow-blue-500/20">+ New Project</a>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div class="glass-panel p-6 rounded-3xl">
+            <div class="opacity-60 text-xs font-bold uppercase mb-2">Total Projects</div>
+            <div class="text-4xl font-bold" id="totalCount">0</div>
+        </div>
+        <div class="glass-panel p-6 rounded-3xl">
+            <div class="opacity-60 text-xs font-bold uppercase mb-2">Most Recent</div>
+            <div class="text-xl font-bold truncate" id="recentName">-</div>
+        </div>
+    </div>
+
+    <h3 class="text-2xl font-bold mb-6 opacity-80">Your Productions</h3>
+    <div id="projectList" class="grid grid-cols-1 gap-4"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const res = await fetch('/api/projects');
+            const projects = await res.json();
+            document.getElementById('totalCount').innerText = projects.length;
+            if(projects.length) document.getElementById('recentName').innerText = projects[projects.length-1].title;
+            
+            const list = document.getElementById('projectList');
+            if(!projects.length) list.innerHTML = '<div class="glass-panel p-10 rounded-3xl text-center opacity-50">No projects yet. Start creating!</div>';
+            
+            projects.reverse().forEach(p => {
+                const date = new Date(p.savedAt).toLocaleDateString();
+                const shots = (p.setups ? p.setups.reduce((acc, s) => acc + s.shots.length, 0) : 0);
+                const card = document.createElement('div');
+                card.className = "glass-panel p-6 rounded-3xl project-card transition duration-300 cursor-pointer flex items-center justify-between group";
+                card.innerHTML = `
+                    <div class="flex items-center gap-6">
+                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-gray-500 group-hover:text-blue-400 transition shadow-inner">
+                            <i class="fa-solid fa-clapperboard text-2xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xl font-bold group-hover:text-blue-500 transition">${p.title || 'Untitled'}</h4>
+                            <p class="text-xs opacity-50 mt-1">${shots} Shots • Edited ${date}</p>
+                        </div>
+                    </div>
+                    <button class="w-10 h-10 rounded-full hover:bg-red-500/20 hover:text-red-500 transition opacity-0 group-hover:opacity-100 delete-btn" onclick="deleteP('${p.id}', event)">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                `;
+                card.onclick = (e) => { if(!e.target.closest('.delete-btn')) window.location.href = `/studio?id=${p.id}`; };
+                list.appendChild(card);
+            });
+        });
+        async function deleteP(id, e) {
+            e.stopPropagation();
+            if(confirm('Delete?')) { await fetch(`/api/project/${id}`, {method:'DELETE'}); location.reload(); }
+        }
+    </script>
+</body>
+</html>

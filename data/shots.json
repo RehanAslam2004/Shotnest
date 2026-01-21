@@ -1,0 +1,98 @@
+[
+  {
+    "id": "1768895576292",
+    "title": "Untitled Project",
+    "scriptHtml": "<div class=\"max-w-2xl mx-auto\">A detective walking out of the room with the gun in the hand....\n</div>",
+    "setupA": [],
+    "setupB": [
+      {
+        "type": "TRACKING SHOT",
+        "desc": "1",
+        "id": "1"
+      }
+    ],
+    "savedAt": "2026-01-20T07:56:59.103Z"
+  },
+  {
+    "id": 1768896216523,
+    "title": "First script",
+    "scriptHtml": "<div class=\"max-w-2xl mx-auto\">A detective walking out of the room with the gun in the hand\n</div>",
+    "setupA": [],
+    "setupB": [
+      {
+        "type": "TRACKING SHOT",
+        "desc": "1",
+        "id": "1"
+      }
+    ],
+    "savedAt": "2026-01-20T08:03:36.523Z"
+  },
+  {
+    "id": "1768981159739",
+    "title": "Main Script",
+    "scriptHtml": "<div class=\"text-gray-300 mb-2 text-left\">A detective walking out of the room with the gun in the hand</div>",
+    "setupA": [
+      {
+        "type": "Main shot",
+        "desc": "Main character walking on the road",
+        "id": "1",
+        "time": "3",
+        "image": ""
+      }
+    ],
+    "setupB": [
+      {
+        "type": "second shot",
+        "desc": "People apporach him with knife",
+        "id": "2",
+        "time": "3",
+        "image": ""
+      }
+    ],
+    "schedule": [
+      [
+        {
+          "id": "1",
+          "time": "3",
+          "type": "Main shot",
+          "desc": "Main character walking on the road"
+        }
+      ],
+      [
+        {
+          "id": "2",
+          "time": "3",
+          "type": "second shot",
+          "desc": "People apporach him with knife"
+        }
+      ]
+    ],
+    "savedAt": "2026-01-21T08:44:44.232Z",
+    "setups": [
+      {
+        "title": "Setup A",
+        "shots": [
+          {
+            "id": "1",
+            "type": "Main shot",
+            "desc": "Main character walking on the road",
+            "time": "3",
+            "image": ""
+          }
+        ]
+      },
+      {
+        "title": "Setup B",
+        "shots": [
+          {
+            "id": "2",
+            "type": "second shot",
+            "desc": "People apporach him with knife",
+            "time": "3",
+            "image": ""
+          }
+        ]
+      }
+    ]
+  }
+]
