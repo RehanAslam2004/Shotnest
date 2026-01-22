@@ -2,86 +2,308 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Dashboard | Shotnest</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
         
-        body { font-family: 'Outfit', sans-serif; background: #09090b; color: #e4e4e7; }
-        .blob { position: absolute; filter: blur(100px); z-index: -1; opacity: 0.4; }
-        .blob-1 { top: -20%; right: -10%; width: 600px; height: 600px; background: #3b82f6; }
-        .blob-2 { bottom: -20%; left: -10%; width: 500px; height: 500px; background: #8b5cf6; }
+        :root {
+            --bg-color: #09090b;
+            --text-color: #e4e4e7;
+            --sidebar-bg: #09090b;
+            --border-color: rgba(255,255,255,0.08);
+            --card-bg: rgba(255,255,255,0.03);
+            --card-hover: rgba(255,255,255,0.05);
+            --active-bg: rgba(59, 130, 246, 0.1);
+            --text-muted: #a1a1aa;
+        }
 
-        .glass-panel { background: rgba(20, 20, 23, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .project-card:hover { background: rgba(255, 255, 255, 0.05); transform: translateY(-3px); }
+        .light-mode {
+            --bg-color: #f1f5f9;
+            --text-color: #1e293b;
+            --sidebar-bg: #ffffff;
+            --border-color: rgba(0,0,0,0.05);
+            --card-bg: #ffffff;
+            --card-hover: #f8fafc;
+            --active-bg: rgba(37, 99, 235, 0.1);
+            --text-muted: #64748b;
+        }
+        
+        body { font-family: 'Outfit', sans-serif; background: var(--bg-color); color: var(--text-color); transition: background 0.3s ease, color 0.3s ease; }
+        
+        /* --- LAYOUT GRID --- */
+        .app-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            min-height: 100vh;
+        }
+
+        /* --- SIDEBAR (DESKTOP) --- */
+        .sidebar { 
+            background: var(--sidebar-bg); 
+            border-right: 1px solid var(--border-color); 
+            position: fixed; top: 0; left: 0; bottom: 0; width: 260px;
+            display: flex; flex-direction: column; padding: 24px; 
+            z-index: 50;
+        }
+
+        .nav-group { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+
+        .nav-item { 
+            display: flex; align-items: center; gap: 12px; padding: 12px 16px; 
+            border-radius: 12px; color: var(--text-muted); font-weight: 500; font-size: 14px; 
+            transition: 0.2s; cursor: pointer; 
+        }
+        .nav-item:hover { background: var(--card-bg); color: var(--text-color); }
+        .nav-item.active { background: var(--active-bg); color: #3b82f6; font-weight: 700; }
+
+        /* --- MOBILE OVERRIDES (BOTTOM BAR) --- */
+        @media(max-width: 768px) {
+            .app-layout { display: block; } /* Disable grid */
+            
+            .sidebar {
+                width: 100%; height: 64px; bottom: 0; top: auto; left: 0;
+                border-right: none; border-top: 1px solid var(--border-color);
+                flex-direction: row; padding: 0;
+                justify-content: space-around; align-items: center;
+                backdrop-filter: blur(20px);
+                background: var(--sidebar-bg); /* Ensure solid bg */
+            }
+
+            /* Hide Desktop Elements */
+            .sidebar-logo, .sidebar-footer { display: none !important; }
+
+            /* Fix Nav Group layout for row */
+            .nav-group { 
+                flex-direction: row; justify-content: space-evenly; align-items: center; width: 100%; padding: 0 10px;
+            }
+
+            /* Stack Icon & Text Vertically */
+            .nav-item { 
+                flex-direction: column; gap: 4px; padding: 8px 0; 
+                font-size: 10px; flex: 1; justify-content: center; 
+                border-radius: 8px;
+            }
+            .nav-item i { font-size: 18px; margin-bottom: 2px; }
+            .nav-text { display: block; font-size: 9px; }
+            
+            /* Show Theme Toggle in Mobile Nav */
+            #mobileThemeBtn { display: flex !important; }
+        }
+
+        /* --- MAIN CONTENT --- */
+        .main-content { 
+            margin-left: 260px; padding: 40px 60px; 
+        }
+        @media(max-width: 768px) {
+            .main-content { 
+                margin-left: 0; padding: 24px 20px; 
+                padding-bottom: 100px; /* Space for bottom bar */
+            }
+        }
+
+        /* --- COMPONENTS --- */
+        .project-card { 
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; 
+            padding: 20px; transition: all 0.2s; cursor: pointer; position: relative; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between;
+            min-height: 140px;
+        }
+        .project-card:hover { background: var(--card-hover); transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); }
+
+        .create-card { 
+            border: 1px dashed var(--border-color); align-items: center; justify-content: center; 
+            color: var(--text-muted); gap: 10px; background: transparent; 
+        }
+        .create-card:hover { border-color: #3b82f6; color: #3b82f6; background: var(--active-bg); }
+
+        .card-actions { opacity: 0; transition: opacity 0.2s; display: flex; gap: 4px; }
+        .project-card:hover .card-actions { opacity: 1; }
+        @media(max-width: 768px) { .card-actions { opacity: 1; } } /* Always show on mobile */
+
+        .action-btn { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: all 0.2s; }
+        .action-btn:hover { background: rgba(0,0,0,0.1); color: var(--text-color); }
+        .action-btn.favorite.active { color: #fbbf24; }
+        .action-btn.delete:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
     </style>
 </head>
-<body class="min-h-screen p-8 md:p-16 relative overflow-x-hidden">
-    <div class="blob blob-1 rounded-full"></div>
-    <div class="blob blob-2 rounded-full"></div>
-
-    <header class="flex justify-between items-end mb-12">
-        <div>
-            <div class="text-blue-500 font-bold tracking-widest text-xs mb-2">SHOTNEST</div>
-            <h1 class="text-5xl font-bold">Dashboard</h1>
+<body>
+    
+    <div class="sidebar">
+        <div class="sidebar-logo flex items-center gap-3 mb-10 px-2">
+            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><i class="fa-solid fa-layer-group text-sm"></i></div>
+            <span class="font-bold text-xl tracking-tight">Shotnest</span>
         </div>
-        <div class="flex gap-4">
-            <a href="/" class="glass-panel px-6 py-3 rounded-full font-bold hover:scale-105 transition">Home</a>
-            <a href="/studio" class="bg-blue-600 text-white px-6 py-3 rounded-full font-bold hover:scale-105 transition shadow-lg shadow-blue-500/20">+ New Project</a>
+        
+        <div class="nav-group">
+            <div id="filterAll" class="nav-item active" onclick="setFilter('all')">
+                <i class="fa-solid fa-border-all w-5 text-center"></i> <span class="nav-text">Projects</span>
+            </div>
+            <div id="filterFav" class="nav-item" onclick="setFilter('fav')">
+                <i class="fa-regular fa-star w-5 text-center"></i> <span class="nav-text">Favs</span>
+            </div>
+            <div id="filterArc" class="nav-item" onclick="setFilter('arc')">
+                <i class="fa-solid fa-box-archive w-5 text-center"></i> <span class="nav-text">Archive</span>
+            </div>
+            <button id="mobileThemeBtn" class="nav-item md:hidden" style="display:none;" onclick="toggleTheme()">
+                <i class="fa-solid fa-moon w-5 text-center"></i> <span class="nav-text">Theme</span>
+            </button>
         </div>
-    </header>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <div class="glass-panel p-6 rounded-3xl">
-            <div class="opacity-60 text-xs font-bold uppercase mb-2">Total Projects</div>
-            <div class="text-4xl font-bold" id="totalCount">0</div>
-        </div>
-        <div class="glass-panel p-6 rounded-3xl">
-            <div class="opacity-60 text-xs font-bold uppercase mb-2">Most Recent</div>
-            <div class="text-xl font-bold truncate" id="recentName">-</div>
+        
+        <div class="sidebar-footer mt-auto border-t border-[var(--border-color)] pt-4 space-y-2">
+            <button id="desktopThemeBtn" class="nav-item w-full" onclick="toggleTheme()">
+                <i class="fa-solid fa-moon w-5"></i> Theme
+            </button>
+            <a href="/" class="nav-item"><i class="fa-solid fa-arrow-right-from-bracket w-5"></i> Log Out</a>
         </div>
     </div>
 
-    <h3 class="text-2xl font-bold mb-6 opacity-80">Your Productions</h3>
-    <div id="projectList" class="grid grid-cols-1 gap-4"></div>
+    <div class="main-content">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-bold mb-1" id="pageTitle">Your Projects</h1>
+                <p class="text-sm opacity-60">Manage your scripts and productions.</p>
+            </div>
+            <div class="flex gap-3 w-full md:w-auto">
+                <button onclick="createNewProject()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 md:py-2.5 rounded-xl font-bold text-sm transition shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 flex-1 md:flex-initial">
+                    <i class="fa-solid fa-plus"></i> New Project
+                </button>
+                <a href="/" class="md:hidden w-11 h-11 md:w-10 md:h-10 rounded-xl border border-[var(--border-color)] flex items-center justify-center text-[var(--text-muted)] bg-[var(--card-bg)]"><i class="fa-solid fa-arrow-right-from-bracket"></i></a>
+            </div>
+        </div>
+        
+        <div id="projectGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6"></div>
+    </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            const res = await fetch('/api/projects');
-            const projects = await res.json();
-            document.getElementById('totalCount').innerText = projects.length;
-            if(projects.length) document.getElementById('recentName').innerText = projects[projects.length-1].title;
+        let allProjects = [];
+        let currentFilter = 'all';
+
+        // --- THEME LOGIC ---
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            updateThemeIcons(isLight);
+        }
+
+        function updateThemeIcons(isLight) {
+            const icons = document.querySelectorAll('#desktopThemeBtn i, #mobileThemeBtn i');
+            icons.forEach(icon => {
+                icon.className = isLight ? 'fa-solid fa-sun w-5 text-center' : 'fa-solid fa-moon w-5 text-center';
+            });
+        }
+
+        // Init Theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-mode');
+            updateThemeIcons(true);
+        }
+
+        // --- PROJECT LOGIC ---
+        function createNewProject() {
+            const uniqueId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+            window.location.href = `/studio?id=${uniqueId}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', loadProjects);
+
+        async function loadProjects() {
+            try {
+                const res = await fetch('/api/projects');
+                allProjects = await res.json();
+                renderProjects();
+            } catch(e) { console.error("Error loading", e); }
+        }
+
+        function setFilter(type) {
+            currentFilter = type;
+            document.querySelectorAll('.nav-item').forEach(el => {
+                if(el.id.startsWith('filter')) el.classList.remove('active');
+            });
+            if(type==='all') document.getElementById('filterAll').classList.add('active');
+            if(type==='fav') document.getElementById('filterFav').classList.add('active');
+            if(type==='arc') document.getElementById('filterArc').classList.add('active');
             
-            const list = document.getElementById('projectList');
-            if(!projects.length) list.innerHTML = '<div class="glass-panel p-10 rounded-3xl text-center opacity-50">No projects yet. Start creating!</div>';
+            const titles = { 'all': 'Your Projects', 'fav': 'Favorites', 'arc': 'Archived Projects' };
+            document.getElementById('pageTitle').innerText = titles[type];
+            renderProjects();
+        }
+
+        function renderProjects() {
+            const grid = document.getElementById('projectGrid');
+            grid.innerHTML = '';
             
-            projects.reverse().forEach(p => {
-                const date = new Date(p.savedAt).toLocaleDateString();
-                const shots = (p.setups ? p.setups.reduce((acc, s) => acc + s.shots.length, 0) : 0);
+            if (currentFilter === 'all') {
+                const createCard = document.createElement('div');
+                createCard.className = "project-card create-card min-h-[160px]";
+                createCard.onclick = createNewProject;
+                createCard.innerHTML = `<div class="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center text-lg"><i class="fa-solid fa-plus"></i></div><span class="font-bold text-sm">Create New</span>`;
+                grid.appendChild(createCard);
+            }
+
+            const filtered = allProjects.filter(p => {
+                if (currentFilter === 'fav') return p.isFavorite && !p.isArchived;
+                if (currentFilter === 'arc') return p.isArchived;
+                return !p.isArchived;
+            });
+
+            if (filtered.length === 0 && currentFilter !== 'all') { 
+                grid.innerHTML += `<div class="col-span-full text-center opacity-30 py-10">No projects found.</div>`; 
+                return; 
+            }
+
+            filtered.reverse().forEach(p => {
+                const date = new Date(p.savedAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const card = document.createElement('div');
-                card.className = "glass-panel p-6 rounded-3xl project-card transition duration-300 cursor-pointer flex items-center justify-between group";
+                card.className = "project-card min-h-[160px] flex flex-col justify-between group";
+                card.onclick = (e) => { if(!e.target.closest('.action-btn')) window.location.href = `/studio?id=${p.id}`; };
+                
+                const favClass = p.isFavorite ? 'active' : '';
+                const favIcon = p.isFavorite ? 'fa-solid' : 'fa-regular';
+                
                 card.innerHTML = `
-                    <div class="flex items-center gap-6">
-                        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-800 to-black flex items-center justify-center text-gray-500 group-hover:text-blue-400 transition shadow-inner">
-                            <i class="fa-solid fa-clapperboard text-2xl"></i>
+                    <div class="flex justify-between items-start">
+                        <div class="w-10 h-10 rounded-lg bg-gray-500/10 border border-[var(--border-color)] flex items-center justify-center text-gray-400">
+                            <i class="fa-solid fa-clapperboard"></i>
                         </div>
-                        <div>
-                            <h4 class="text-xl font-bold group-hover:text-blue-500 transition">${p.title || 'Untitled'}</h4>
-                            <p class="text-xs opacity-50 mt-1">${shots} Shots • Edited ${date}</p>
+                        <div class="card-actions">
+                            <button class="action-btn favorite ${favClass}" onclick="toggleStatus('${p.id}', 'fav')"><i class="${favIcon} fa-star text-xs"></i></button>
+                            <button class="action-btn" onclick="toggleStatus('${p.id}', 'arc')"><i class="fa-solid fa-box-archive text-xs"></i></button>
+                            <button class="action-btn delete" onclick="deleteProject('${p.id}')"><i class="fa-solid fa-trash text-xs"></i></button>
                         </div>
                     </div>
-                    <button class="w-10 h-10 rounded-full hover:bg-red-500/20 hover:text-red-500 transition opacity-0 group-hover:opacity-100 delete-btn" onclick="deleteP('${p.id}', event)">
-                        <i class="fa-solid fa-trash"></i>
-                    </button>
-                `;
-                card.onclick = (e) => { if(!e.target.closest('.delete-btn')) window.location.href = `/studio?id=${p.id}`; };
-                list.appendChild(card);
+                    <div>
+                        <h3 class="font-bold text-lg mb-1 truncate">${p.title || 'Untitled'}</h3>
+                        <div class="flex items-center gap-3 text-xs opacity-60 font-medium">
+                            <span><i class="fa-regular fa-clock mr-1"></i> ${date}</span>
+                            <span><i class="fa-solid fa-layer-group mr-1"></i> ${p.setups?p.setups.length:0} Setups</span>
+                        </div>
+                    </div>`;
+                grid.appendChild(card);
             });
-        });
-        async function deleteP(id, e) {
-            e.stopPropagation();
-            if(confirm('Delete?')) { await fetch(`/api/project/${id}`, {method:'DELETE'}); location.reload(); }
+        }
+
+        async function toggleStatus(id, type) {
+            const project = allProjects.find(p => p.id == id);
+            if (!project) return;
+            const updates = { id: id };
+            if (type === 'fav') { project.isFavorite = !project.isFavorite; updates.isFavorite = project.isFavorite; }
+            if (type === 'arc') { project.isArchived = !project.isArchived; updates.isArchived = project.isArchived; }
+            renderProjects();
+            await fetch('/api/save-project', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(updates) });
+        }
+
+        async function deleteProject(id) {
+            if(confirm('Delete this project?')) {
+                await fetch(`/api/project/${id}`, {method:'DELETE'});
+                allProjects = allProjects.filter(p => p.id != id);
+                renderProjects();
+            }
         }
     </script>
 </body>

@@ -14,7 +14,7 @@
     "savedAt": "2026-01-20T07:56:59.103Z"
   },
   {
-    "id": 1768896216523,
+    "id": "1768896216523",
     "title": "First script",
     "scriptHtml": "<div class=\"max-w-2xl mx-auto\">A detective walking out of the room with the gun in the hand\n</div>",
     "setupA": [],
@@ -25,7 +25,8 @@
         "id": "1"
       }
     ],
-    "savedAt": "2026-01-20T08:03:36.523Z"
+    "savedAt": "2026-01-21T13:10:27.816Z",
+    "isArchived": false
   },
   {
     "id": "1768981159739",
@@ -67,16 +68,19 @@
         }
       ]
     ],
-    "savedAt": "2026-01-21T08:44:44.232Z",
+    "savedAt": "2026-01-21T13:10:22.536Z",
     "setups": [
       {
         "title": "Setup A",
         "shots": [
           {
             "id": "1",
-            "type": "Main shot",
+            "type": "Wide",
+            "angle": "Eye",
             "desc": "Main character walking on the road",
             "time": "3",
+            "lens": "",
+            "fps": "",
             "image": ""
           }
         ]
@@ -86,13 +90,17 @@
         "shots": [
           {
             "id": "2",
-            "type": "second shot",
+            "type": "Wide",
+            "angle": "Eye",
             "desc": "People apporach him with knife",
             "time": "3",
+            "lens": "",
+            "fps": "",
             "image": ""
           }
         ]
       }
-    ]
+    ],
+    "isFavorite": true
   }
 ]

@@ -1,0 +1,69 @@
+[
+  {
+    "id": "demo-room",
+    "title": "Untitled Project",
+    "scriptHtml": "A detective walking out of the room with the gun in the hand<br>",
+    "setups": [
+      {
+        "title": "Scene 1 Setup",
+        "shots": []
+      }
+    ],
+    "team": [
+      {
+        "email": "you@shotnest.com",
+        "role": "director"
+      }
+    ],
+    "savedAt": 1769004347943,
+    "isFavorite": false,
+    "isArchived": false
+  },
+  {
+    "id": "mko3zhyx7tuhig86wh7",
+    "title": "Untitled Project",
+    "scriptHtml": "how are you fwa",
+    "setups": [
+      {
+        "title": "Scene 1 Setup",
+        "shots": []
+      }
+    ],
+    "schedule": [
+      {
+        "title": "Day 1",
+        "shots": []
+      }
+    ],
+    "team": [
+      {
+        "email": "you@shotnest.com",
+        "role": "director"
+      }
+    ],
+    "savedAt": 1769008037661,
+    "isFavorite": false,
+    "isArchived": false
+  },
+  {
+    "id": "mko5qy9q8sg1h4tr3j2",
+    "title": "Untitled Project",
+    "scriptHtml": "",
+    "setups": [
+      {
+        "title": "Scene 1 Setup",
+        "shots": []
+      }
+    ],
+    "schedule": [],
+    "team": [
+      {
+        "email": "you@shotnest.com",
+        "role": "director"
+      }
+    ],
+    "savedAt": 1769008605428,
+    "isFavorite": false,
+    "isArchived": false
+  }
+]

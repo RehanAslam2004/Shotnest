@@ -1,349 +1,247 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 0. MICRO-INTERACTIONS ---
-    document.querySelectorAll('.interact-btn').forEach(btn => {
-        btn.addEventListener('mousedown', () => gsap.to(btn, { scale: 0.95, duration: 0.1 }));
-        btn.addEventListener('mouseup', () => gsap.to(btn, { scale: 1, duration: 0.4, ease: "elastic.out(1, 0.3)" }));
-        btn.addEventListener('mouseleave', () => gsap.to(btn, { scale: 1, duration: 0.2 }));
+    const socket = io();
+    const urlParams = new URLSearchParams(window.location.search);
+    const projectId = urlParams.get('id') || 'demo'; 
+    
+    // --- FORCE DIRECTOR ROLE ---
+    let currentRole = 'director'; 
+    let projectTeam = [{ email: 'you@shotnest.com', role: 'director' }];
+    let saveInterval;
+
+    socket.emit('join-project', projectId);
+    
+    // UI Init
+    const currentRoleBadge = document.getElementById('currentRoleBadge');
+    if(currentRoleBadge) currentRoleBadge.innerText = "DIRECTOR MODE";
+    
+    loadProjectData();
+    initTheme();
+    setupAutoSave();
+    
+    // FORCE SCRIPT TAB ACTIVE
+    setTimeout(() => switchTab('script'), 100); 
+
+
+    // --- 2. SCRIPT FORMATTING (CRITICAL FIX) ---
+    const scriptEditor = document.getElementById('scriptContent');
+
+    // Use mousedown + preventDefault to keep focus on text
+    document.querySelectorAll('.format-btn').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // STOP FOCUS STEALING
+            const type = btn.getAttribute('data-type');
+            formatLine(type);
+        });
     });
 
-    // --- 1. DYNAMIC SETUP LOGIC ---
-    const masterContainer = document.getElementById('masterShotContainer');
-    const btnAddSetup = document.getElementById('btnAddSetup');
-
-    function createSetupBlock(title = "New Setup", existingShots = []) {
-        const setupId = 'setup-' + Date.now();
-        const badgeId = 'badge-' + Date.now();
+    function formatLine(type) {
+        scriptEditor.focus(); // Force focus back just in case
         
-        const setupDiv = document.createElement('div');
-        setupDiv.className = "setup-group mb-4 opacity-0"; 
-        setupDiv.innerHTML = `
-            <div class="flex justify-between items-center mb-2 px-1 group">
-                <input type="text" value="${title}" class="bg-transparent text-xs font-bold opacity-50 uppercase tracking-widest focus:opacity-100 focus:text-blue-500 outline-none setup-title-input" />
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        
+        const range = selection.getRangeAt(0);
+        let node = range.commonAncestorContainer;
+
+        // If at root or text node, find parent block
+        if (node.nodeType === 3) node = node.parentNode;
+        if (node === scriptEditor) {
+            document.execCommand('formatBlock', false, 'div');
+            node = window.getSelection().getRangeAt(0).commonAncestorContainer;
+            if (node.nodeType === 3) node = node.parentNode;
+        }
+
+        while (node && node.nodeName !== 'DIV' && node.nodeName !== 'P' && node !== scriptEditor) {
+            node = node.parentNode;
+        }
+
+        if (node && node !== scriptEditor) {
+            // Remove all existing classes then add new one
+            node.className = ''; 
+            if (type === 'scene') node.className = 'script-scene';
+            if (type === 'action') node.className = 'script-action';
+            if (type === 'char') node.className = 'script-char';
+            if (type === 'dial') node.className = 'script-dial';
+            
+            // Sync
+            socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
+        }
+    }
+
+    // --- 3. REAL-TIME SYNC ---
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    if(scriptEditor) {
+        scriptEditor.addEventListener('input', debounce(() => {
+            socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
+        }, 300));
+    }
+
+    socket.on('script-changed', (data) => {
+        if (document.activeElement !== scriptEditor) scriptEditor.innerHTML = data.html;
+    });
+
+    socket.on('shot-data-changed', (data) => {
+        const card = document.querySelector(`.shot-card-item[data-id="${data.shotId}"]`);
+        if (!card) return;
+        const updateField = (selector, value) => {
+            const el = card.querySelector(selector);
+            if (el && document.activeElement !== el) {
+                if(el.tagName === 'DIV' || el.tagName === 'P') el.innerText = value; else el.value = value;
+            }
+        };
+        if (data.field === 'desc') updateField('.shot-desc', data.value);
+        if (data.field === 'lens') updateField('.shot-lens', data.value);
+        if (data.field === 'fps') updateField('.shot-fps', data.value);
+        if (data.field === 'type') updateField('.shot-type', data.value);
+        if (data.field === 'angle') updateField('.shot-angle', data.value);
+    });
+
+
+    // --- 4. SHOT LIST LOGIC ---
+    function createShotCard(shot = {}, container) {
+        const s = {
+            id: shot.id || '1', type: shot.type || 'Wide', angle: shot.angle || 'Eye', 
+            desc: shot.desc || 'Description...', lens: shot.lens || '', fps: shot.fps || '', 
+            time: shot.time || 5, status: shot.status || 'draft', image: shot.image || ''
+        };
+        const card = document.createElement('div');
+        card.className = "themed-card p-4 rounded-xl flex flex-col gap-3 relative group hover:border-blue-500/50 transition duration-300 shot-card-item";
+        card.setAttribute('data-id', s.id);
+
+        const statusColors = { 'draft': 'status-draft', 'approved': 'status-approved', 'fix': 'status-fix' };
+        
+        card.innerHTML = `
+            <div class="flex justify-between items-center drag-handle cursor-grab active:cursor-grabbing">
                 <div class="flex items-center gap-2">
-                    <span id="${badgeId}" class="text-[10px] text-blue-500 font-bold bg-blue-500/10 px-2 py-1 rounded-md">0m</span>
-                    <button class="delete-setup interact-btn opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-500/10 w-6 h-6 rounded flex items-center justify-center transition"><i class="fa-solid fa-trash text-xs"></i></button>
+                    <span class="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded shot-id">${s.id}</span>
+                    <span class="status-pill ${statusColors[s.status]}" data-status="${s.status}">${s.status}</span>
+                </div>
+                <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                     <button class="text-gray-500 hover:text-white comment-btn"><i class="fa-regular fa-message"></i></button>
+                     <button class="text-red-500 delete-shot"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>
-            <div class="sortable-list space-y-2 min-h-[20px] pb-2" id="${setupId}"></div>
-            <button class="add-shot-btn interact-btn w-full py-3 rounded-xl border border-dashed border-gray-500/20 opacity-40 hover:opacity-100 hover:bg-white/5 text-[10px] font-bold uppercase tracking-widest transition">+ Add Shot</button>
+            <div class="aspect-video bg-black/20 rounded-lg overflow-hidden flex items-center justify-center relative trigger-upload cursor-pointer border border-white/5 hover:border-blue-500/50 transition">
+                ${s.image ? `<img src="${s.image}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-image text-3xl opacity-20"></i>`}
+                <div class="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition text-xs font-bold text-white">CHANGE IMAGE</div>
+            </div>
+            <div class="flex flex-col gap-2">
+                <div class="flex gap-2">
+                    <select class="w-1/2 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs font-bold shot-type outline-none text-current"><option value="Wide" ${s.type==='Wide'?'selected':''}>Wide</option><option value="Med" ${s.type==='Med'?'selected':''}>Med</option><option value="CU" ${s.type==='CU'?'selected':''}>CU</option></select>
+                    <select class="w-1/2 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs font-bold shot-angle outline-none text-current"><option value="Eye" ${s.angle==='Eye'?'selected':''}>Eye</option><option value="Low" ${s.angle==='Low'?'selected':''}>Low</option></select>
+                </div>
+                <p class="text-sm opacity-80 min-h-[40px] border-b border-dashed border-white/10 focus:border-blue-500 outline-none shot-desc" contenteditable="true">${s.desc}</p>
+                <div class="flex gap-2 mt-1">
+                    <input type="text" class="w-1/2 bg-transparent text-[10px] border-b border-white/10 shot-lens focus:border-blue-500 outline-none placeholder-gray-600 text-current" placeholder="Lens" value="${s.lens}">
+                    <input type="text" class="w-1/2 bg-transparent text-[10px] border-b border-white/10 shot-fps focus:border-blue-500 outline-none placeholder-gray-600 text-current" placeholder="FPS" value="${s.fps}">
+                </div>
+                <input type="hidden" class="shot-time" value="${s.time}">
+            </div>
+            <input type="file" class="hidden img-input" accept="image/*">
+            <img src="${s.image}" class="hidden shot-img-storage">
         `;
 
-        masterContainer.appendChild(setupDiv);
-        gsap.fromTo(setupDiv, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power2.out" });
-
-        const list = setupDiv.querySelector('.sortable-list');
-        new Sortable(list, {
-            group: 'shared-shots',
-            animation: 150,
-            ghostClass: 'opacity-50',
-            handle: '.shot-card-item', // Drag whole card
-            onEnd: () => recalculateAllTimes()
-        });
-
-        setupDiv.querySelector('.add-shot-btn').addEventListener('click', () => {
-            const count = document.querySelectorAll('.shot-card-item').length + 1;
-            createShotCard({ id: count, type: 'NEW SHOT', desc: 'Describe shot...', time: 10 }, list);
-            recalculateAllTimes();
-        });
-
-        setupDiv.querySelector('.delete-setup').addEventListener('click', () => {
-            if(confirm('Delete this setup?')) {
-                gsap.to(setupDiv, { height: 0, opacity: 0, duration: 0.3, onComplete: () => { setupDiv.remove(); recalculateAllTimes(); }});
-            }
-        });
-
-        if(existingShots.length > 0) existingShots.forEach(s => createShotCard(s, list));
-        recalculateAllTimes();
-    }
-
-    if(masterContainer.children.length === 0) {
-        createSetupBlock("Setup A: Wide Master");
-    }
-
-    if(btnAddSetup) btnAddSetup.addEventListener('click', () => createSetupBlock("New Setup"));
-
-    function recalculateAllTimes() {
-        document.querySelectorAll('.setup-group').forEach(group => {
-            const inputs = group.querySelectorAll('.shot-time');
-            const badge = group.querySelector('span[id^="badge-"]');
-            let total = 0;
-            inputs.forEach(i => total += (parseInt(i.value) || 0));
-            const h = Math.floor(total / 60);
-            const m = total % 60;
-            if(badge) badge.innerText = (h > 0) ? `${h}h ${m}m` : `${m}m`;
-        });
-    }
-
-    // --- 2. SHOT CARD LOGIC (GRID LAYOUT) ---
-    function createShotCard(shot, container) {
-        const card = document.createElement('div');
-        // Themed card with Grid Layout
-        card.className = "themed-card p-3 rounded-xl shadow-sm cursor-grab active:cursor-grabbing group relative shot-card-item opacity-0 border-l-4 border-l-blue-500";
-        
-        // Thumbnail Logic
-        const imgSrc = shot.image || '';
-        const thumbContent = imgSrc 
-            ? `<img src="${imgSrc}" class="w-full h-full object-cover rounded-md" />`
-            : `<i class="fa-solid fa-image text-2xl opacity-20 group-hover:opacity-40 transition"></i>`;
-
-        card.innerHTML = `
-            <div class="shot-grid">
-                <div class="flex items-center justify-center h-full">
-                    <span class="bg-black/10 dark:bg-white/10 text-xs font-bold w-8 h-8 flex items-center justify-center rounded-full shot-id">${shot.id}</span>
-                </div>
-
-                <div class="shot-thumb trigger-upload relative group/thumb">
-                    ${thumbContent}
-                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition">
-                        <i class="fa-solid fa-pen text-white text-xs"></i>
-                    </div>
-                </div>
-
-                <div class="flex flex-col justify-center min-w-0">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="font-bold text-sm shot-type truncate pr-2" contenteditable="true">${shot.type}</span>
-                        <input type="number" class="shot-time w-10 bg-transparent text-xs text-right font-bold opacity-60 focus:opacity-100 hover:bg-white/5 rounded px-1" value="${shot.time||''}" title="Minutes">
-                    </div>
-                    <p class="text-xs opacity-60 shot-desc truncate" contenteditable="true">${shot.desc}</p>
-                </div>
-
-                <div class="flex flex-col items-center justify-center h-full gap-2">
-                    <button class="delete-shot opacity-0 group-hover:opacity-100 text-red-500 hover:bg-red-500/10 w-6 h-6 rounded flex items-center justify-center transition"><i class="fa-solid fa-xmark text-xs"></i></button>
-                    <i class="fa-solid fa-grip-lines text-xs opacity-20"></i>
-                </div>
-
-                <input type="file" accept="image/*" class="hidden img-input">
-                <img src="${imgSrc}" class="hidden shot-img-storage"> </div>
-        `;
+        // PERMISSIONS
+        if (currentRole === 'dp') { card.querySelector('.delete-shot').remove(); card.querySelector('.shot-desc').contentEditable = false; }
+        if (currentRole === 'producer' || currentRole === 'ad') { card.style.pointerEvents = "none"; card.querySelector('.delete-shot').remove(); }
 
         container.appendChild(card);
-        gsap.to(card, { opacity: 1, duration: 0.3 });
+        gsap.from(card, { y: 20, opacity: 0, duration: 0.3 });
 
-        // Logic
-        const timeInput = card.querySelector('.shot-time');
-        timeInput.addEventListener('input', recalculateAllTimes);
-
-        const thumbBox = card.querySelector('.trigger-upload');
-        const imgInput = card.querySelector('.img-input');
-        const imgStorage = card.querySelector('.shot-img-storage');
-        
-        thumbBox.addEventListener('click', () => imgInput.click());
-        
-        imgInput.addEventListener('change', (e) => {
-            if(e.target.files[0]) {
-                const reader = new FileReader();
-                reader.onload = (ev) => { 
-                    imgStorage.src = ev.target.result; 
-                    // Update visual thumbnail
-                    thumbBox.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover rounded-md" />`;
-                };
-                reader.readAsDataURL(e.target.files[0]);
+        const attachSync = (selector, field) => {
+            const el = card.querySelector(selector);
+            if(el) {
+                el.addEventListener('input', debounce(() => {
+                    const val = (el.tagName === 'DIV' || el.tagName === 'P') ? el.innerText : el.value;
+                    socket.emit('shot-data-change', { projectId, shotId: s.id, field: field, value: val });
+                }, 300));
             }
+        };
+        attachSync('.shot-desc', 'desc'); attachSync('.shot-lens', 'lens'); attachSync('.shot-fps', 'fps'); attachSync('.shot-type', 'type'); attachSync('.shot-angle', 'angle');
+
+        card.querySelector('.status-pill').addEventListener('click', (e) => {
+            if(currentRole !== 'director' && currentRole !== 'dp') return;
+            const el = e.target;
+            const next = el.innerText === 'draft' ? 'approved' : (el.innerText === 'approved' ? 'fix' : 'draft');
+            el.className = `status-pill ${statusColors[next]}`; el.innerText = next; el.setAttribute('data-status', next);
+            socket.emit('shot-update', { projectId, shotId: s.id, changes: { status: next } });
         });
 
-        card.querySelector('.delete-shot').addEventListener('click', () => {
-            gsap.to(card, { height: 0, opacity: 0, margin: 0, padding: 0, duration: 0.2, onComplete: () => {
-                card.remove();
-                recalculateAllTimes();
-            }});
-        });
-    }
-
-    // --- 3. VIEW TRANSITIONS ---
-    const btnShot = document.getElementById('btnViewShotList');
-    const btnSched = document.getElementById('btnViewSchedule');
-    const work = document.getElementById('mainWorkspace');
-    const sched = document.getElementById('scheduleWorkspace');
-    const viewPill = document.getElementById('viewPill');
-
-    function updatePillState(isSchedule) {
-        if (isSchedule) {
-            gsap.to(viewPill, { x: 106, duration: 0.3, ease: "power2.out" });
-            btnShot.classList.replace('text-white', 'text-gray-500');
-            btnSched.classList.replace('text-gray-500', 'text-white');
-        } else {
-            gsap.to(viewPill, { x: 0, duration: 0.3, ease: "power2.out" });
-            btnShot.classList.replace('text-gray-500', 'text-white');
-            btnSched.classList.replace('text-white', 'text-gray-500');
+        card.querySelector('.comment-btn').addEventListener('click', () => openComments(s.id));
+        if (currentRole === 'director') {
+            card.querySelector('.delete-shot').addEventListener('click', () => card.remove());
+            const imgInput = card.querySelector('.img-input'); const trigger = card.querySelector('.trigger-upload');
+            trigger.addEventListener('click', () => imgInput.click());
+            imgInput.addEventListener('change', (e) => { if(e.target.files[0]){ const reader = new FileReader(); reader.onload = (ev) => { trigger.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover">`; }; reader.readAsDataURL(e.target.files[0]); } });
         }
     }
 
-    if(btnShot) {
-        btnShot.addEventListener('click', () => {
-            updatePillState(false);
-            sched.style.pointerEvents = "none";
-            gsap.to(sched, { x: "100%", opacity: 0, duration: 0.4, ease: "power2.in" });
-            gsap.to(work, { x: "0%", opacity: 1, duration: 0.4, delay: 0.1, ease: "power2.out" });
-        });
+    // --- 5. SETUP & SAVE ---
+    const masterContainer = document.getElementById('masterShotContainer');
+    const btnAddSetup = document.getElementById('btnAddSetup');
+    function createSetupBlock(title="New Setup", existingShots=[]) {
+        const setupId = 'setup-' + Date.now();
+        const setupDiv = document.createElement('div'); setupDiv.className = "setup-group mb-12 opacity-0";
+        setupDiv.innerHTML = `<div class="flex justify-between items-end mb-4 border-b border-white/10 pb-2"><input type="text" value="${title}" class="bg-transparent text-xl font-bold focus:text-blue-500 outline-none setup-title-input w-full text-current" /><button class="delete-setup text-red-500 opacity-50 hover:opacity-100 transition"><i class="fa-solid fa-trash"></i></button></div><div class="shot-grid-layout sortable-list" id="${setupId}"></div><button class="add-shot-btn w-full py-4 mt-4 rounded-xl border border-dashed border-white/10 opacity-50 hover:opacity-100 hover:bg-white/5 transition flex items-center justify-center gap-2 text-current"><i class="fa-solid fa-plus"></i> Add Shot</button>`;
+        masterContainer.appendChild(setupDiv); gsap.to(setupDiv, { opacity: 1, duration: 0.4 });
+        const list = setupDiv.querySelector('.sortable-list'); new Sortable(list, { group: 'shared-shots', animation: 150, handle: '.drag-handle', disabled: (currentRole!=='director') });
+        setupDiv.querySelector('.add-shot-btn').addEventListener('click', () => createShotCard({ id: list.children.length+1 }, list));
+        setupDiv.querySelector('.delete-setup').addEventListener('click', () => { if(confirm('Delete?')) setupDiv.remove(); });
+        if(existingShots.length > 0) existingShots.forEach(s => createShotCard(s, list));
+    }
+    if(btnAddSetup) btnAddSetup.addEventListener('click', () => createSetupBlock("New Setup"));
 
-        btnSched.addEventListener('click', () => {
-            updatePillState(true);
-            syncStripboard();
-            sched.style.pointerEvents = "auto";
-            gsap.to(work, { x: "-20%", opacity: 0, duration: 0.4, ease: "power2.in" });
-            gsap.to(sched, { x: "0%", opacity: 1, duration: 0.4, delay: 0.1, ease: "power2.out" });
-        });
+    async function saveProject() {
+        const saveBtn = document.getElementById('saveBtn'); const icon = saveBtn ? saveBtn.querySelector('i') : null;
+        if(icon) gsap.to(icon, { rotation: 360, duration: 1, repeat: -1, ease: "linear" });
+        const setups = [];
+        document.querySelectorAll('.setup-group').forEach(group => { const shots = []; group.querySelectorAll('.shot-card-item').forEach(card => { const img = card.querySelector('.shot-img-storage').src; const hasImg = img && !img.includes(window.location.href); shots.push({ id: card.getAttribute('data-id'), type: card.querySelector('.shot-type').value, angle: card.querySelector('.shot-angle').value, desc: card.querySelector('.shot-desc').innerText, lens: card.querySelector('.shot-lens').value, fps: card.querySelector('.shot-fps').value, time: card.querySelector('.shot-time').value, status: card.querySelector('.status-pill').getAttribute('data-status') || 'draft', image: hasImg ? img : '' }); }); setups.push({ title: group.querySelector('.setup-title-input').value, shots: shots }); });
+        const schedule = []; document.querySelectorAll('.day-strip').forEach(day => { const title = day.querySelector('.day-title-input').value; const dayShots = []; day.querySelectorAll('.strip-item').forEach(item => dayShots.push(item.getAttribute('data-id'))); schedule.push({ title: title, shots: dayShots }); });
+        const projectData = { id: projectId, title: document.getElementById('projectTitle').value, scriptHtml: document.getElementById('scriptContent').innerHTML, setups: setups, schedule: schedule, team: projectTeam };
+        try { const res = await fetch('/api/save-project', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(projectData) }); if(res.ok && icon) { gsap.killTweensOf(icon); gsap.to(icon, { rotation: 0, duration: 0.2, onComplete: () => { icon.className = "fa-solid fa-check text-green-500"; setTimeout(() => { icon.className = "fa-solid fa-cloud"; }, 2000); }}); } } catch (e) { if(icon) { gsap.killTweensOf(icon); icon.className = "fa-solid fa-triangle-exclamation text-red-500"; } }
     }
 
-    // --- 4. EXPORT MODAL ---
-    const modal = document.getElementById('exportModal');
-    const modalContent = modal.querySelector('.modal-content');
-    
-    document.getElementById('triggerExport').addEventListener('click', () => {
-        modal.classList.remove('hidden');
-        gsap.to(modal, { opacity: 1, pointerEvents: "auto", duration: 0.2 });
-        gsap.fromTo(modalContent, { scale: 0.9, y: 10 }, { scale: 1, y: 0, duration: 0.3, ease: "back.out(1.7)" });
-    });
-
-    document.getElementById('closeModal').addEventListener('click', () => {
-        gsap.to(modal, { opacity: 0, pointerEvents: "none", duration: 0.2, onComplete: () => modal.classList.add('hidden') });
-    });
-
-    // --- 5. PDF GEN ---
-    const expScript = document.getElementById('expScript');
-    const expShots = document.getElementById('expShots');
-    const expFull = document.getElementById('expFull');
-    const projectTitleInput = document.getElementById('projectTitle');
-    const scriptContent = document.getElementById('scriptContent');
-
-    function generatePDF(mode) {
-        gsap.to(modal, { opacity: 0, pointerEvents: "none", duration: 0.2, onComplete: () => modal.classList.add('hidden') });
-        const title = projectTitleInput.value || "Project Export";
-        
-        const styles = `<style>@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap'); body { font-family: 'Outfit', sans-serif; color: black !important; } .script-text { font-family: 'Courier New', monospace; white-space: pre-wrap; font-size: 14px; margin-bottom: 40px;} .pdf-header { background: #111; color: white; padding: 20px; margin-bottom: 20px; } table { width: 100%; border-collapse: collapse; margin-bottom: 20px; } th { background: #eee; padding: 8px; text-align: left; } td { border-bottom: 1px solid #ddd; padding: 8px; vertical-align:top; } .setup-head { font-weight: bold; font-size: 16px; margin-top: 20px; border-bottom: 2px solid black; } .thumb-col { width: 80px; } .thumb-img { width: 80px; height: 45px; object-fit: cover; }</style>`;
-        
-        const container = document.createElement('div');
-        container.innerHTML = styles + `<div class="pdf-header"><h1>${title}</h1><p>${new Date().toLocaleDateString()}</p></div>`;
-
-        if(mode === 'script' || mode === 'full') {
-            container.innerHTML += `<h2>Script</h2><div class="script-text">${scriptContent.innerText}</div>`;
-        }
-        if(mode === 'shots' || mode === 'full') {
-            container.innerHTML += `<div style="page-break-before: always;"><h2>Shot List</h2></div>`;
-            document.querySelectorAll('.setup-group').forEach(group => {
-                const setupName = group.querySelector('.setup-title-input').value;
-                const cards = group.querySelectorAll('.shot-card-item');
-                if(cards.length > 0) {
-                    let html = `<div class="setup-head">${setupName}</div><table><tr><th>#</th><th>Vis</th><th>Shot</th><th>Desc</th><th>Time</th></tr>`;
-                    cards.forEach(c => {
-                        // Get image from storage
-                        const img = c.querySelector('.shot-img-storage').src;
-                        const hasImg = img && !img.includes(window.location.href);
-                        const imgHtml = hasImg ? `<img src="${img}" class="thumb-img">` : '';
-
-                        html += `<tr>
-                            <td>${c.querySelector('.shot-id').innerText}</td>
-                            <td class="thumb-col">${imgHtml}</td>
-                            <td>${c.querySelector('.shot-type').innerText}</td>
-                            <td>${c.querySelector('.shot-desc').innerText}</td>
-                            <td>${c.querySelector('.shot-time').value}m</td>
-                        </tr>`;
-                    });
-                    html += `</table>`;
-                    container.innerHTML += html;
-                }
-            });
-        }
-        html2pdf().from(container).save(`${title}_${mode}.pdf`);
+    async function loadProjectData() {
+        try { const res = await fetch(`/api/project/${projectId}`); if(!res.ok) { createSetupBlock("Scene 1 Setup"); return; } const data = await res.json(); document.getElementById('projectTitle').value = data.title || "Untitled"; document.getElementById('scriptContent').innerHTML = data.scriptHtml || ''; if(data.team) projectTeam = data.team; const masterContainer = document.getElementById('masterShotContainer'); masterContainer.innerHTML = ''; if(data.setups && data.setups.length > 0) data.setups.forEach(s => createSetupBlock(s.title, s.shots)); else createSetupBlock("Scene 1 Setup"); const daysContainer = document.getElementById('scheduledDaysContainer'); daysContainer.innerHTML = ''; if(data.schedule && data.schedule.length > 0) { data.schedule.forEach(day => { const title = day.title || `Day`; const shotIds = Array.isArray(day) ? day : (day.shots || []); addDayStrip(title, shotIds); }); } else { addDayStrip("Day 1"); } enforcePermissions(); } catch(e) { }
     }
 
-    if(expScript) expScript.addEventListener('click', () => generatePDF('script'));
-    if(expShots) expShots.addEventListener('click', () => generatePDF('shots'));
-    if(expFull) expFull.addEventListener('click', () => generatePDF('full'));
+    function setupAutoSave() { document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProject(); }}); saveInterval = setInterval(saveProject, 60000); }
+    const saveBtn = document.getElementById('saveBtn'); if(saveBtn) saveBtn.addEventListener('click', saveProject);
 
-    // --- 6. SAVE & LOAD ---
-    const saveBtn = document.getElementById('saveBtn');
-    const urlParams = new URLSearchParams(window.location.search);
-    const projectId = urlParams.get('id');
+    // --- 6. UTILS, TABS, THEME ---
+    const tabs = { script: { btn: document.getElementById('navScript'), view: document.getElementById('viewScript') }, shots: { btn: document.getElementById('navShots'), view: document.getElementById('viewShots') }, schedule: { btn: document.getElementById('navSchedule'), view: document.getElementById('viewSchedule') } };
+    function switchTab(activeKey) {
+        Object.values(tabs).forEach(t => t.btn.classList.remove('active')); tabs[activeKey].btn.classList.add('active');
+        Object.keys(tabs).forEach(key => { const view = tabs[key].view; if(key === activeKey) { gsap.to(view, { y: 0, opacity: 1, zIndex: 10, duration: 0.4, ease: "power2.out", pointerEvents: "auto" }); if(key==='schedule') syncStripboard(); } else { gsap.to(view, { y: 20, opacity: 0, zIndex: 0, duration: 0.3, ease: "power2.in", pointerEvents: "none" }); } });
+    }
+    if(tabs.script.btn) tabs.script.btn.addEventListener('click', () => switchTab('script'));
+    if(tabs.shots.btn) tabs.shots.btn.addEventListener('click', () => switchTab('shots'));
+    if(tabs.schedule.btn) tabs.schedule.btn.addEventListener('click', () => switchTab('schedule'));
 
-    if(saveBtn) {
-        saveBtn.addEventListener('click', async () => {
-            const icon = saveBtn.querySelector('i');
-            gsap.to(icon, { rotation: 360, duration: 0.5 });
-            
-            const setups = [];
-            document.querySelectorAll('.setup-group').forEach(group => {
-                const shots = [];
-                group.querySelectorAll('.shot-card-item').forEach(card => {
-                    const img = card.querySelector('.shot-img-storage').src;
-                    const hasImg = img && !img.includes(window.location.href);
-                    
-                    shots.push({
-                        id: card.querySelector('.shot-id').innerText,
-                        type: card.querySelector('.shot-type').innerText,
-                        desc: card.querySelector('.shot-desc').innerText,
-                        time: card.querySelector('.shot-time').value,
-                        image: hasImg ? img : ''
-                    });
-                });
-                setups.push({
-                    title: group.querySelector('.setup-title-input').value,
-                    shots: shots
-                });
-            });
-
-            const projectData = { id: projectId, title: projectTitleInput.value, scriptHtml: scriptContent.innerHTML, setups: setups };
-            await fetch('/api/save-project', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(projectData) });
-            
-            icon.classList.remove('fa-cloud'); icon.classList.add('fa-check', 'text-green-400');
-            setTimeout(() => { icon.classList.remove('fa-check', 'text-green-400'); icon.classList.add('fa-cloud'); gsap.set(icon, { rotation: 0 }); }, 2000);
-            
-            if(!projectId) window.location.href = `/dashboard`;
-        });
+    function initTheme() {
+        const themeBtn = document.getElementById('themeToggle'); const icon = themeBtn ? themeBtn.querySelector('i') : null; const savedTheme = localStorage.getItem('theme'); if (savedTheme === 'light') { document.body.classList.add('light-mode'); if(icon) icon.className = 'fa-solid fa-sun'; } if(themeBtn) { themeBtn.addEventListener('click', () => { document.body.classList.toggle('light-mode'); const isLight = document.body.classList.contains('light-mode'); localStorage.setItem('theme', isLight ? 'light' : 'dark'); if(icon) { gsap.to(icon, { rotation: 360, duration: 0.5, onComplete: () => { icon.className = isLight ? 'fa-solid fa-sun' : 'fa-solid fa-moon'; gsap.set(icon, { rotation: 0 }); }}); } }); }
     }
 
-    // Schedule / Script formatting logic remains similar
-    const unscheduledList = document.getElementById('unscheduledList');
-    const scheduledDaysContainer = document.getElementById('scheduledDaysContainer');
-    
-    function syncStripboard() {
-        // Simple rebuild logic for stripboard
-        unscheduledList.innerHTML = '';
-        document.querySelectorAll('.shot-card-item').forEach(card => {
-            const id = card.querySelector('.shot-id').innerText;
-            if(document.querySelector(`.strip-item[data-id="${id}"]`)) return;
+    function openModal(modalId) { const modal = document.getElementById(modalId); const content = modal.querySelector('.modal-content'); modal.classList.remove('hidden'); modal.style.display = 'flex'; gsap.to(modal, { opacity: 1, duration: 0.2 }); gsap.fromTo(content, { scale: 0.95, y: 10, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.3, ease: "back.out(1.7)" }); }
+    function closeModal(modalId) { const modal = document.getElementById(modalId); const content = modal.querySelector('.modal-content'); gsap.to(content, { scale: 0.95, y: 10, opacity: 0, duration: 0.2 }); gsap.to(modal, { opacity: 0, duration: 0.2, delay: 0.1, onComplete: () => { modal.classList.add('hidden'); modal.style.display = 'none'; }}); }
 
-            const div = document.createElement('div');
-            div.className = "themed-card p-2 rounded-lg flex items-center justify-between border-l-4 border-l-blue-500 cursor-grab mb-2 shadow-sm strip-item";
-            div.setAttribute('data-id', id);
-            div.setAttribute('data-time', card.querySelector('.shot-time').value);
-            div.innerHTML = `<span class="font-bold text-xs">Shot ${id}</span><span class="text-xs opacity-50 truncate w-24">${card.querySelector('.shot-type').innerText}</span>`;
-            unscheduledList.appendChild(div);
-        });
-        new Sortable(unscheduledList, { group: 'schedule', animation: 150 });
-    }
+    const unscheduledList = document.getElementById('unscheduledList'); const scheduledDaysContainer = document.getElementById('scheduledDaysContainer'); const addDayBtn = document.getElementById('addDayBtn');
+    if(addDayBtn) addDayBtn.addEventListener('click', () => { const dayCount = scheduledDaysContainer.querySelectorAll('.day-strip').length + 1; addDayStrip(`Day ${dayCount}`); });
+    function addDayStrip(titleVal="New Day", shotIds=[]) { const div = document.createElement('div'); div.className = "day-strip bg-black/20 border border-white/10 p-4 rounded-xl relative group mb-4"; div.innerHTML = `<div class="flex justify-between items-center mb-3"><input type="text" value="${titleVal}" class="day-title-input bg-transparent text-xs font-bold uppercase tracking-widest opacity-60 outline-none focus:opacity-100 focus:text-blue-500 transition w-full text-current" /><button class="text-red-500 opacity-0 group-hover:opacity-100 transition delete-day"><i class="fa-solid fa-trash"></i></button></div><div class="min-h-[50px] border-2 border-dashed border-white/5 rounded-lg sortable-day transition hover:border-white/10 p-2 gap-2 flex flex-wrap"></div>`; scheduledDaysContainer.appendChild(div); const sortContainer = div.querySelector('.sortable-day'); new Sortable(sortContainer, { group: 'schedule', animation: 150 }); if (shotIds.length > 0) { shotIds.forEach(id => { const originalCard = document.querySelector(`.shot-card-item[data-id="${id}"]`); const type = originalCard ? originalCard.querySelector('.shot-type').value : 'Shot'; sortContainer.appendChild(createStripItem(id, type)); }); } div.querySelector('.delete-day').addEventListener('click', () => { if(confirm('Remove this day?')) { div.querySelectorAll('.strip-item').forEach(item => unscheduledList.appendChild(item)); div.remove(); } }); }
+    function createStripItem(id, type) { const div = document.createElement('div'); div.className = "themed-card px-3 py-2 rounded-lg flex items-center gap-3 border-l-4 border-l-blue-500 cursor-grab shadow-sm strip-item text-xs font-bold bg-[#252529] text-white"; div.setAttribute('data-id', id); div.innerHTML = `<span>#${id}</span><span class="opacity-50">${type}</span>`; return div; }
+    function syncStripboard() { unscheduledList.innerHTML = ''; document.querySelectorAll('.shot-card-item').forEach(card => { const id = card.getAttribute('data-id'); let isScheduled = false; document.querySelectorAll('.day-strip .strip-item').forEach(item => { if(item.getAttribute('data-id') === id) isScheduled = true; }); if(!isScheduled) { const type = card.querySelector('.shot-type').value; unscheduledList.appendChild(createStripItem(id, type)); } }); new Sortable(unscheduledList, { group: 'schedule', animation: 150 }); }
 
-    document.getElementById('addDayBtn').addEventListener('click', () => {
-        const day = document.createElement('div');
-        day.className = "day-container mb-4";
-        day.innerHTML = `<div class="bg-black/80 text-white p-3 rounded-t-xl text-sm font-bold">DAY</div><div class="themed-card border-t-0 rounded-b-xl p-3 min-h-[50px] day-list bg-black/5"></div>`;
-        scheduledDaysContainer.appendChild(day);
-        new Sortable(day.querySelector('.day-list'), { group: 'schedule', animation: 150 });
-    });
-
-    if(projectId) {
-        fetch(`/api/project/${projectId}`).then(r=>r.json()).then(data => {
-            projectTitleInput.value = data.title;
-            scriptContent.innerHTML = data.scriptHtml || '';
-            masterContainer.innerHTML = '';
-            if(data.setups) data.setups.forEach(s => createSetupBlock(s.title, s.shots));
-            else if(data.setupA) { createSetupBlock("Setup A", data.setupA); createSetupBlock("Setup B", data.setupB); }
-        });
-    }
-
-    document.querySelectorAll('.format-btn').forEach(btn => {
-        btn.addEventListener('mousedown', (e) => { e.preventDefault(); formatSelection(btn.getAttribute('data-type')); });
-    });
-    function formatSelection(type) { 
-        const sel = window.getSelection();
-        if (!sel.rangeCount) return;
-        const node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentNode : sel.anchorNode;
-        let cls = "";
-        if (type === 'scene') cls = "font-bold uppercase mt-6 mb-2 opacity-100 text-left border-b border-gray-500/20 pb-1"; 
-        else if (type === 'action') cls = "themed-text-muted mb-2 text-left"; 
-        else if (type === 'char') cls = "font-bold uppercase opacity-90 mt-4 ml-10 md:ml-48 w-fit"; 
-        else if (type === 'dial') cls = "themed-text-muted mb-2 ml-4 md:ml-24 max-w-lg"; 
-        if(node.id !== 'scriptContent') node.className = cls;
-    }
+    socket.on('shot-updated', (data) => { const card = document.querySelector(`.shot-card-item[data-id="${data.shotId}"]`); if (card && data.changes && data.changes.status) { const badge = card.querySelector('.status-pill'); const colors = { 'draft': 'status-draft', 'approved': 'status-approved', 'fix': 'status-fix' }; badge.className = `status-pill ${colors[data.changes.status]}`; badge.innerText = data.changes.status; badge.setAttribute('data-status', data.changes.status); } });
+    document.getElementById('triggerTeam').addEventListener('click', () => { renderTeam(); openModal('teamModal'); }); document.getElementById('closeTeamModal').addEventListener('click', () => closeModal('teamModal')); document.getElementById('previewRoleSelect').addEventListener('change', (e) => { currentRole = e.target.value; document.getElementById('currentRoleBadge').innerText = e.target.options[e.target.selectedIndex].text.toUpperCase() + " MODE"; enforcePermissions(); }); function renderTeam() { const list = document.getElementById('teamList'); list.innerHTML = ''; projectTeam.forEach(member => { const row = document.createElement('div'); row.className = 'team-row'; row.innerHTML = `<div class="flex items-center gap-3"><div class="avatar-circle">${member.email.substring(0,2).toUpperCase()}</div><div><div class="text-sm font-bold">${member.email}</div><div class="text-xs opacity-50 uppercase">${member.role}</div></div></div>`; list.appendChild(row); }); }
+    document.getElementById('closeComments').addEventListener('click', () => { document.getElementById('commentDrawer').classList.remove('open'); activeShotId = null; }); function openComments(shotId) { activeShotId = shotId; document.getElementById('commentList').innerHTML = ''; addCommentBubble("Can we get a tighter angle here?", "DoP", false); document.getElementById('commentDrawer').classList.add('open'); } document.getElementById('commentInput').addEventListener('keypress', (e) => { if (e.key === 'Enter' && e.target.value) { addCommentBubble(e.target.value, "You", true); socket.emit('new-comment', { projectId, shotId: activeShotId, text: e.target.value, user: "Director" }); e.target.value = ''; }}); function addCommentBubble(text, user, isMe) { const div = document.createElement('div'); div.className = `msg-bubble ${isMe ? 'border-blue-500/30 bg-blue-500/10' : ''}`; div.innerHTML = `<div class="text-[10px] font-bold opacity-50 mb-1 flex justify-between"><span>${user}</span><span>Now</span></div><div class="leading-relaxed">${text}</div>`; document.getElementById('commentList').appendChild(div); }
+    const importBtn = document.getElementById('importScriptBtn'); const fileInput = document.getElementById('scriptFileInput'); if(importBtn && fileInput) { importBtn.addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if(file) { const reader = new FileReader(); reader.onload = (ev) => { document.getElementById('scriptContent').innerText = ev.target.result; }; reader.readAsText(file); } }); }
+    const projectTitleInput = document.getElementById('projectTitle'); document.getElementById('triggerExport').addEventListener('click', () => { document.getElementById('metaTitle').value = projectTitleInput.value; openModal('exportModal'); }); document.getElementById('closeModal').addEventListener('click', () => closeModal('exportModal')); document.getElementById('btnGeneratePdf').addEventListener('click', () => { closeModal('exportModal'); alert('PDF Generated'); });
 });

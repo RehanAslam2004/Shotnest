@@ -3,46 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shotnest | The Future of Production</title>
+    <title>Shotnest | Production OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;800&display=swap');
         
-        body { font-family: 'Outfit', sans-serif; background: #050505; color: white; overflow-x: hidden; }
-
-        .blob { position: absolute; filter: blur(90px); z-index: -1; opacity: 0.6; animation: float 10s infinite alternate ease-in-out; }
-        .blob-1 { top: -10%; left: -10%; width: 500px; height: 500px; background: #4a90e2; }
-        .blob-2 { bottom: -10%; right: -10%; width: 600px; height: 600px; background: #7b42f6; animation-delay: 2s; }
-        @keyframes float { 0% { transform: translate(0, 0); } 100% { transform: translate(30px, 50px); } }
-
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .text-gradient { 
-            background: linear-gradient(to right, #4a90e2, #c471ed, #f64f59); 
-            background-clip: text; -webkit-background-clip: text; 
-            -webkit-text-fill-color: transparent; color: transparent; 
+        :root {
+            --bg-color: #050505;
+            --text-color: #ffffff;
+            --card-bg: rgba(255,255,255,0.03);
+            --border-color: rgba(255,255,255,0.08);
+            --nav-bg: rgba(5, 5, 5, 0.8);
+            --glow-color: rgba(59,130,246,0.15);
         }
+
+        .light-mode {
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+            --card-bg: #ffffff;
+            --border-color: rgba(0,0,0,0.05);
+            --nav-bg: rgba(255, 255, 255, 0.9);
+            --glow-color: rgba(37, 99, 235, 0.05);
+        }
+        
+        body { font-family: 'Outfit', sans-serif; background: var(--bg-color); color: var(--text-color); overflow-x: hidden; transition: background 0.3s ease, color 0.3s ease; }
+        
+        .hero-glow {
+            position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, var(--glow-color) 0%, rgba(0,0,0,0) 70%);
+            top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: -1;
+        }
+
+        .nav-glass { background: var(--nav-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color); transition: background 0.3s ease, border-color 0.3s ease; }
+        
+        .feature-card {
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            padding: 30px; border-radius: 20px; transition: all 0.3s;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .feature-card:hover { border-color: rgba(59, 130, 246, 0.3); transform: translateY(-5px); }
+
+        .btn-primary {
+            background: #2563eb; color: white; font-weight: 700; padding: 12px 32px; border-radius: 12px;
+            transition: all 0.2s; box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.5);
+        }
+        .btn-primary:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 15px 35px -10px rgba(37, 99, 235, 0.6); }
+
+        .scroller span { display: block; height: 1.2em; animation: scroll 6s infinite cubic-bezier(0.8, 0, 0.2, 1); }
+        @keyframes scroll { 0%, 20% { transform: translateY(0); } 33%, 53% { transform: translateY(-1.2em); } 66%, 86% { transform: translateY(-2.4em); } 100% { transform: translateY(0); } }
     </style>
 </head>
-<body class="min-h-screen flex flex-col relative">
-    <div class="blob blob-1 rounded-full"></div>
-    <div class="blob blob-2 rounded-full"></div>
+<body class="min-h-screen flex flex-col">
 
-    <nav class="flex justify-between items-center p-8 z-10">
-        <div class="text-2xl font-bold flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <i class="fa-solid fa-layer-group text-white text-lg"></i>
+    <nav class="nav-glass fixed top-0 w-full z-50">
+        <div class="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><i class="fa-solid fa-layer-group text-sm"></i></div>
+                <span class="font-bold text-xl tracking-tight">Shotnest</span>
             </div>
-            <span class="tracking-tight">SHOTNEST</span>
+            
+            <div class="flex gap-4 items-center">
+                <button id="themeToggle" class="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition text-current opacity-70 hover:opacity-100">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                <a href="/login" class="text-sm font-bold text-white bg-blue-600 px-5 py-2.5 rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-500/20">Log In</a>
+            </div>
         </div>
-        <a href="/dashboard" class="glass px-6 py-2 rounded-full text-sm font-bold hover:bg-white/10 transition">Dashboard</a>
     </nav>
 
-    <main class="flex-1 flex flex-col items-center justify-center text-center px-4 z-10">
-        <div class="glass px-4 py-1 rounded-full text-xs font-medium text-blue-400 mb-6 border border-blue-500/20">✨ Welcome to Shotnest 1.0</div>
-        <h1 class="text-6xl md:text-8xl font-bold mb-6 tracking-tight leading-tight">Your production.<br><span class="text-gradient">Nest it here.</span></h1>
-        <p class="opacity-60 text-lg md:text-xl max-w-2xl mb-10 font-light">The organic workspace for modern filmmakers. Write, plan, and schedule without the chaos.</p>
-        <a href="/studio" class="bg-blue-600 text-white px-8 py-4 rounded-full font-bold text-lg hover:scale-105 transition shadow-[0_0_30px_rgba(37,99,235,0.3)]">Enter Studio</a>
+    <main class="flex-1 flex flex-col items-center justify-center text-center px-4 pt-32 pb-20 relative overflow-hidden">
+        <div class="hero-glow"></div>
+        
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-bold uppercase tracking-widest mb-8">
+            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+            v1.0 Now Live
+        </div>
+
+        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]">
+            Your film needs a<br>
+            <div class="h-[1.2em] overflow-hidden text-blue-500 inline-block align-bottom scroller">
+                <span>Better Script.</span>
+                <span>Visual Plan.</span>
+                <span>Solid Schedule.</span>
+            </div>
+        </h1>
+        
+        <p class="text-lg md:text-xl opacity-60 max-w-2xl mb-10 leading-relaxed">
+            Stop switching between Docs, Excel, and PDF tools. Shotnest unifies your entire pre-production workflow into one fluid workspace.
+        </p>
+        
+        <div class="flex flex-col md:flex-row gap-4">
+            <a href="/login" class="btn-primary flex items-center gap-3">
+                Get Started <i class="fa-solid fa-arrow-right"></i>
+            </a>
+            <a href="#" class="px-8 py-3 rounded-xl font-bold opacity-70 hover:opacity-100 border border-current hover:bg-current hover:text-black transition flex items-center gap-2">
+                <i class="fa-solid fa-play text-xs"></i> Watch Demo
+            </a>
+        </div>
+
+        <div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full text-left px-4">
+            <div class="feature-card group">
+                <div class="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-500 flex items-center justify-center mb-4 text-xl group-hover:scale-110 transition"><i class="fa-solid fa-pen-nib"></i></div>
+                <h3 class="text-lg font-bold mb-2">Distraction-Free Writing</h3>
+                <p class="text-sm opacity-60">Industry standard formatting that stays out of your way.</p>
+            </div>
+            <div class="feature-card group">
+                <div class="w-10 h-10 rounded-lg bg-purple-500/20 text-purple-500 flex items-center justify-center mb-4 text-xl group-hover:scale-110 transition"><i class="fa-solid fa-clapperboard"></i></div>
+                <h3 class="text-lg font-bold mb-2">Visual Shot Lists</h3>
+                <p class="text-sm opacity-60">Drag, drop, and tag shots with lens, camera, and lighting data.</p>
+            </div>
+            <div class="feature-card group">
+                <div class="w-10 h-10 rounded-lg bg-green-500/20 text-green-500 flex items-center justify-center mb-4 text-xl group-hover:scale-110 transition"><i class="fa-regular fa-calendar-check"></i></div>
+                <h3 class="text-lg font-bold mb-2">Smart Scheduling</h3>
+                <p class="text-sm opacity-60">Auto-generate stripboards based on your scene breakdown.</p>
+            </div>
+        </div>
     </main>
+
+    <footer class="border-t border-white/10 py-10 text-center">
+        <p class="opacity-40 text-sm">© 2026 Shotnest. Built for Filmmakers.</p>
+    </footer>
+
+    <script>
+        // Init Theme
+        const themeBtn = document.getElementById('themeToggle');
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+            document.body.classList.add('light-mode');
+            themeBtn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+        }
+
+        themeBtn.addEventListener('click', () => {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            
+            gsap.to(themeBtn, { rotation: 360, duration: 0.5, onComplete: () => {
+                themeBtn.innerHTML = isLight ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+                gsap.set(themeBtn, { rotation: 0 });
+            }});
+        });
+
+        gsap.from("h1", { y: 20, opacity: 0, duration: 0.8, ease: "power2.out" });
+        gsap.from("p", { y: 20, opacity: 0, duration: 0.8, delay: 0.2, ease: "power2.out" });
+        gsap.from(".feature-card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.1, delay: 0.4 });
+    </script>
 </body>
 </html>

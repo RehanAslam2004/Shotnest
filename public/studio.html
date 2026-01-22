@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Studio | Shotnest</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 
     <style>
@@ -14,198 +16,275 @@
 
         /* --- THEME VARIABLES --- */
         :root {
-            --bg-color: #09090b;
-            --text-color: #e4e4e7;
-            --muted-color: #a1a1aa;
-            --glass-bg: rgba(20, 20, 23, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --card-bg: #18181b;
-            --card-hover: #27272a;
-            --icon-color: #9ca3af;
-            --placeholder-bg: rgba(255,255,255,0.03);
-            --sidebar-btn-border: rgba(255,255,255,0.1);
-            --sidebar-btn-bg: rgba(255,255,255,0.05);
+            --bg-color: #09090b; --text-color: #e4e4e7;
+            --glass-bg: rgba(20, 20, 23, 0.95); --glass-border: rgba(255, 255, 255, 0.1);
+            --card-bg: #18181b; --icon-color: #9ca3af;
+            --sidebar-active: #3b82f6; --sidebar-active-bg: rgba(59, 130, 246, 0.15);
+            --input-bg: rgba(255, 255, 255, 0.08); --input-border: rgba(255, 255, 255, 0.15);
+            --modal-bg: #18181b;
         }
 
         .light-mode {
-            --bg-color: #f1f5f9;
-            --text-color: #334155;
-            --muted-color: #64748b;
-            --glass-bg: rgba(255, 255, 255, 0.85);
-            --glass-border: rgba(226, 232, 240, 0.8);
-            --card-bg: #ffffff;
-            --card-hover: #f8fafc;
-            --icon-color: #64748b;
-            --placeholder-bg: rgba(0,0,0,0.03);
-            --sidebar-btn-border: rgba(0,0,0,0.1);
-            --sidebar-btn-bg: rgba(0,0,0,0.05);
+            --bg-color: #f8fafc; --text-color: #1e293b;
+            --glass-bg: rgba(255, 255, 255, 0.95); --glass-border: rgba(226, 232, 240, 0.8);
+            --card-bg: #ffffff; --icon-color: #64748b;
+            --sidebar-active: #2563eb; --sidebar-active-bg: rgba(37, 99, 235, 0.1);
+            --input-bg: #f1f5f9; --input-border: #e2e8f0;
+            --modal-bg: #ffffff;
         }
 
-        body { 
-            font-family: 'Outfit', sans-serif; 
-            background: var(--bg-color); 
-            color: var(--text-color); 
-            transition: background 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            background-image: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1), transparent 20%), radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.1), transparent 20%);
+        /* --- GLOBAL --- */
+        body { font-family: 'Outfit', sans-serif; background: var(--bg-color); color: var(--text-color); overflow: hidden; transition: background 0.3s ease, color 0.3s ease; }
+        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); transition: background 0.3s ease, border-color 0.3s ease; }
+        .themed-card { background-color: var(--card-bg); border: 1px solid var(--glass-border); color: var(--text-color); transition: background 0.3s ease, border-color 0.3s ease; }
+        
+        /* --- RESPONSIVE SIDEBAR --- */
+        .sidebar-btn { 
+            width: 100%; aspect-ratio: 1; border-radius: 16px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            color: var(--icon-color); transition: 0.2s; font-size: 10px; font-weight: 700; gap: 4px; 
+        }
+        .sidebar-btn:hover { background: rgba(125,125,125,0.1); color: var(--text-color); }
+        .sidebar-btn.active { background: var(--sidebar-active-bg); color: var(--sidebar-active); border: 1px solid rgba(59, 130, 246, 0.3); }
+
+        @media (max-width: 768px) {
+            .sidebar-btn { aspect-ratio: auto; height: 100%; border-radius: 0; }
+            .sidebar-btn i { font-size: 1.2rem; margin-bottom: 2px; }
+            .sidebar-btn span { font-size: 9px; }
         }
         
-        .glass-panel { background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); }
-        .themed-card { background-color: var(--card-bg); border: 1px solid var(--glass-border); color: var(--text-color); transition: all 0.2s ease; }
-        .themed-card:hover { background-color: var(--card-hover); transform: translateY(-2px); border-color: rgba(59, 130, 246, 0.3); }
+        /* --- INPUT STYLES (FIXED CONTRAST) --- */
+        .pro-input { 
+            width: 100%; 
+            background-color: rgba(255, 255, 255, 0.08) !important; /* Forces Dark BG */
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            padding: 10px 12px; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            color: #ffffff !important; /* Forces White Text */
+            outline: none; 
+            transition: 0.2s; 
+            font-weight: 500; 
+        }
         
-        /* Navigation Buttons */
-        .nav-btn { color: var(--icon-color); transition: 0.2s; }
-        .nav-btn:hover { color: #3b82f6; background: rgba(255,255,255,0.05); }
-
-        /* Sidebar Square Buttons */
-        .sidebar-square {
-            background: var(--sidebar-btn-bg);
-            border: 1px solid var(--sidebar-btn-border);
-            color: var(--icon-color);
-            transition: all 0.2s;
-        }
-        .sidebar-square:hover {
-            background: #3b82f6;
-            border-color: #3b82f6;
-            color: white;
+        .light-mode .pro-input {
+            background-color: #f1f5f9 !important;
+            border-color: #e2e8f0;
+            color: #1e293b !important;
         }
 
-        .shot-grid { display: grid; grid-template-columns: 40px 100px 1fr 40px; gap: 16px; align-items: start; }
-        .shot-thumb { aspect-ratio: 16/9; background: var(--placeholder-bg); border: 1px dashed var(--icon-color); border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; transition: all 0.2s; }
-        .shot-thumb:hover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-        .shot-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .pro-input:focus { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1) !important; }
+        
+        .pro-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; display: block; letter-spacing: 0.05em; }
+        
+        .pro-checkbox { appearance: none; width: 18px; height: 18px; border: 2px solid #9ca3af; border-radius: 5px; background: transparent; cursor: pointer; position: relative; transition: all 0.2s; }
+        .pro-checkbox:checked { background: #3b82f6; border-color: #3b82f6; }
+        .pro-checkbox:checked::after { content: '\f00c'; font-family: "Font Awesome 6 Free"; font-weight: 900; color: white; font-size: 10px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
-        .font-mono { font-family: 'Courier Prime', monospace; }
-        [contenteditable]:empty:before { content: attr(placeholder); opacity: 0.5; }
-        input:focus { outline: none; }
-        #exportModal { opacity: 0; pointer-events: none; } 
+        /* --- SCRIPT FORMATTING --- */
+        #scriptContent { 
+            font-family: 'Courier Prime', monospace; font-size: 16px; line-height: 1.5; outline: none; 
+            padding: 60px; max-width: 800px; margin: 0 auto; min-height: 100%; white-space: pre-wrap; 
+        }
+        @media (max-width: 768px) { #scriptContent { padding: 20px 15px; font-size: 14px; } }
+
+        .script-scene { font-weight: 800 !important; text-transform: uppercase !important; margin-top: 24px !important; margin-bottom: 8px !important; background: rgba(125, 125, 125, 0.1); padding: 8px 12px; border-radius: 4px; display: block; }
+        .script-action { text-align: left !important; margin-bottom: 12px !important; display: block; }
+        .script-char { text-align: center !important; font-weight: 700 !important; text-transform: uppercase !important; margin-top: 16px !important; margin-bottom: 0 !important; width: 60%; margin-left: auto; margin-right: auto; display: block; }
+        .script-dial { text-align: center !important; width: 70%; margin-left: auto; margin-right: auto; margin-bottom: 12px !important; display: block; }
+
+        /* --- UTILS --- */
+        .shot-grid-layout { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding-bottom: 100px; }
+        .role-locked { pointer-events: none !important; opacity: 0.5 !important; filter: grayscale(100%); }
+        .role-hidden { display: none !important; }
+        .avatar-circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; background: #3b82f6; color: white; border: 2px solid var(--bg-color); }
+        .team-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--glass-border); }
+        .status-pill { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 4px; cursor: pointer; text-transform: uppercase; letter-spacing: 0.05em; transition: 0.2s; border: 1px solid transparent; }
+        .status-draft { background: rgba(125,125,125,0.1); color: var(--icon-color); border-color: var(--glass-border); }
+        .status-approved { background: rgba(34, 197, 94, 0.1); color: #4ade80; border-color: rgba(34, 197, 94, 0.2); }
+        .status-fix { background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.2); }
+        
+        #commentDrawer { position: absolute; top: 0; right: 0; bottom: 0; width: 320px; background: var(--card-bg); border-left: 1px solid var(--glass-border); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); z-index: 50; display: flex; flex-direction: column; }
+        #commentDrawer.open { transform: translateX(0); }
+        .msg-bubble { background: var(--input-bg); padding: 10px; border-radius: 12px; font-size: 13px; margin-bottom: 10px; border: 1px solid var(--glass-border); color: var(--text-color); }
+        .modal-container { display: none; } 
     </style>
 </head>
-<body class="h-screen flex p-4 gap-4 overflow-hidden">
+<body class="h-screen flex flex-col md:flex-row p-0 md:p-4 gap-0 md:gap-4 overflow-hidden">
 
-    <aside class="w-20 glass-panel rounded-3xl flex flex-col items-center py-6 shadow-2xl z-20">
-        <div class="mb-8 w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 interact-btn">
-            <i class="fa-solid fa-layer-group text-white text-lg"></i>
+    <aside class="order-2 md:order-1 h-16 w-full md:w-20 md:h-full fixed bottom-0 md:relative glass-panel md:rounded-3xl rounded-none border-t md:border flex flex-row md:flex-col items-center justify-around md:py-6 shadow-2xl z-50 shrink-0">
+        <div class="hidden md:flex mb-6 w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 items-center justify-center shadow-lg shadow-blue-500/30">
+            <i class="fa-solid fa-layer-group text-white"></i>
         </div>
-        
-        <nav class="flex flex-col gap-4 w-full px-2">
-            <a href="/dashboard" class="interact-btn w-full aspect-square rounded-2xl flex items-center justify-center sidebar-square group transition" title="Go to Dashboard">
-                <i class="fa-solid fa-border-all text-xl"></i>
-            </a>
-            
-            <div class="w-full h-[1px] bg-gray-500/20 my-2"></div>
-
-            <div class="w-full aspect-square rounded-2xl flex items-center justify-center text-blue-500 bg-blue-500/10 border border-blue-500/20">
-                <i class="fa-solid fa-pen-nib text-xl"></i>
-            </div>
-
-            <button id="themeToggle" class="interact-btn nav-btn mt-auto w-full aspect-square rounded-full flex items-center justify-center">
-                <i class="fa-solid fa-moon"></i>
-            </button>
+        <nav class="flex flex-row md:flex-col gap-1 md:gap-3 w-full px-2 h-full md:h-auto items-center justify-evenly md:justify-start">
+            <a href="/dashboard" class="sidebar-btn hover:border-white/10" title="Dashboard"><i class="fa-solid fa-border-all"></i><span class="md:hidden">Dash</span></a>
+            <div class="hidden md:block w-full h-[1px] bg-white/10 my-1"></div>
+            <button id="navScript" class="sidebar-btn active"><i class="fa-solid fa-pen-nib"></i><span>Script</span></button>
+            <button id="navShots" class="sidebar-btn"><i class="fa-solid fa-clapperboard"></i><span>Shots</span></button>
+            <button id="navSchedule" class="sidebar-btn"><i class="fa-regular fa-calendar"></i><span>Plan</span></button>
+            <div class="hidden md:block w-full h-[1px] bg-white/10 my-1"></div>
+            <button id="themeToggle" class="sidebar-btn md:mt-auto"><i class="fa-solid fa-moon"></i><span class="md:hidden">Theme</span></button>
         </nav>
     </aside>
 
-    <div class="flex-1 flex flex-col gap-4 min-w-0">
+    <div class="flex-1 flex flex-col min-w-0 h-full relative order-1 md:order-2 pb-16 md:pb-0">
         
-        <header class="glass-panel h-16 rounded-2xl px-6 flex items-center justify-between shadow-lg">
-            <div class="flex items-center gap-4">
-                <input type="text" id="projectTitle" value="Untitled Project" class="bg-transparent text-xl font-bold focus:outline-none w-64 text-current">
-                <div class="px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20 text-[10px] font-bold tracking-widest uppercase">Draft</div>
+        <header class="h-16 px-4 md:px-2 flex items-center justify-between shrink-0 z-30 border-b md:border-none border-white/5 bg-[var(--bg-color)] md:bg-transparent">
+            <div class="flex items-center gap-4 flex-1 min-w-0">
+                <input type="text" id="projectTitle" value="Untitled Project" class="bg-transparent text-lg md:text-2xl font-bold focus:outline-none w-full text-current truncate placeholder-gray-500">
+                <div id="currentRoleBadge" class="hidden md:block px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] font-bold uppercase opacity-60 text-current">Director</div>
             </div>
-
-            <div class="hidden md:flex bg-black/5 dark:bg-white/5 rounded-full p-1 border border-white/10 relative">
-                <div id="viewPill" class="absolute top-1 left-1 bottom-1 w-[106px] bg-blue-600 rounded-full shadow-lg z-0 pointer-events-none"></div>
-                <button id="btnViewShotList" class="relative z-10 px-6 py-2 rounded-full text-white text-xs font-bold transition-colors duration-300">Write & Plan</button>
-                <button id="btnViewSchedule" class="relative z-10 px-6 py-2 rounded-full text-gray-500 text-xs font-bold transition-colors duration-300 hover:text-current">Schedule</button>
-            </div>
-
-            <div class="flex items-center gap-3">
-                <button id="saveBtn" class="interact-btn nav-btn w-10 h-10 rounded-full flex items-center justify-center"><i class="fa-solid fa-cloud"></i></button>
-                <button id="triggerExport" class="interact-btn bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-sm font-bold flex items-center transition shadow-lg shadow-blue-500/20">
-                    <i class="fa-solid fa-share-nodes mr-2"></i> Export
+            
+            <div class="flex items-center gap-2 md:gap-3">
+                <div class="hidden sm:flex -space-x-2 mr-2">
+                    <div class="w-7 h-7 rounded-full bg-blue-500 border-2 border-[var(--bg-color)] flex items-center justify-center text-[10px] font-bold text-white">YO</div>
+                    <div class="w-7 h-7 rounded-full bg-green-500 border-2 border-[var(--bg-color)] flex items-center justify-center text-[10px] font-bold opacity-50 text-white">PR</div>
+                </div>
+                <button id="triggerTeam" class="w-9 h-9 md:h-9 md:px-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition text-xs font-bold flex items-center justify-center gap-2 text-current">
+                    <i class="fa-solid fa-user-plus"></i> <span class="hidden md:inline">Share</span>
+                </button>
+                <div class="w-[1px] h-6 bg-white/10 mx-1"></div>
+                <button id="saveBtn" class="w-9 h-9 rounded-full hover:bg-white/5 flex items-center justify-center transition text-gray-400 hover:text-current"><i class="fa-solid fa-cloud"></i></button>
+                <button id="triggerExport" class="bg-blue-600 hover:bg-blue-700 text-white w-9 h-9 md:w-auto md:px-5 md:py-2 rounded-full text-xs font-bold transition shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-share-nodes"></i> <span class="hidden md:inline">Export</span>
                 </button>
             </div>
         </header>
 
-        <div class="flex-1 relative overflow-hidden">
-            <main id="mainWorkspace" class="absolute inset-0 flex gap-4 p-1">
-                <section class="w-1/2 glass-panel rounded-3xl flex flex-col relative overflow-hidden shadow-sm">
-                    <div class="p-4 border-b border-white/10 flex items-center justify-between bg-black/5">
-                        <div class="flex gap-2">
-                            <button class="format-btn interact-btn px-3 py-1.5 rounded-lg text-[10px] font-bold nav-btn border border-white/5" data-type="scene">SCENE</button>
-                            <button class="format-btn interact-btn px-3 py-1.5 rounded-lg text-[10px] font-bold nav-btn border border-white/5" data-type="action">ACTION</button>
-                            <button class="format-btn interact-btn px-3 py-1.5 rounded-lg text-[10px] font-bold nav-btn border border-white/5" data-type="char">CHAR</button>
-                            <button class="format-btn interact-btn px-3 py-1.5 rounded-lg text-[10px] font-bold nav-btn border border-white/5" data-type="dial">DIAL</button>
-                        </div>
-                        
-                        <div class="flex items-center gap-2">
-                            <input type="file" id="fileInput" class="hidden" accept=".txt,.fountain,.md">
-                            <button id="importBtn" class="interact-btn text-xs opacity-60 hover:opacity-100 flex items-center gap-2 px-3 py-2 transition"><i class="fa-solid fa-upload"></i></button>
-                        </div>
-                    </div>
-                    <div id="scriptContent" contenteditable="true" placeholder="Fade in..." class="flex-1 p-10 overflow-y-auto font-mono text-base leading-relaxed opacity-90"></div>
-                </section>
-                <section class="w-1/2 glass-panel rounded-3xl flex flex-col shadow-sm">
-                    <div class="p-5 border-b border-white/10 flex justify-between items-center">
-                        <h3 class="font-bold tracking-wide">Shot List</h3>
-                        <button id="btnAddSetup" class="interact-btn text-[10px] font-bold bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full transition">+ New Setup</button>
-                    </div>
-                    <div class="flex-1 overflow-y-auto p-5 space-y-4" id="masterShotContainer"></div>
-                </section>
-            </main>
+        <div class="flex-1 relative overflow-hidden bg-transparent md:bg-black/5 md:dark:bg-white/5 rounded-none md:rounded-3xl md:border border-white/10 md:mt-2">
             
-            <div id="scheduleWorkspace" class="absolute inset-0 glass-panel rounded-3xl flex flex-col overflow-hidden shadow-sm translate-x-full opacity-0 pointer-events-none">
-                <div class="h-16 border-b border-white/10 flex items-center px-8 justify-between">
-                    <h2 class="text-lg font-bold">Production Stripboard</h2>
-                    <button id="addDayBtn" class="interact-btn nav-btn px-5 py-2 rounded-full text-xs font-bold border border-white/10 transition">+ Add Day</button>
+            <section id="viewScript" class="absolute inset-0 flex flex-col bg-transparent">
+                <div class="h-12 md:h-14 border-b border-white/10 flex items-center overflow-x-auto px-4 gap-4 bg-[var(--card-bg)] backdrop-blur-md z-10 shrink-0 hide-scrollbar">
+                    <button class="format-btn text-[10px] font-bold opacity-60 hover:opacity-100 text-current hover:text-blue-500 uppercase tracking-widest whitespace-nowrap" data-type="scene">Scene</button>
+                    <button class="format-btn text-[10px] font-bold opacity-60 hover:opacity-100 text-current hover:text-blue-500 uppercase tracking-widest whitespace-nowrap" data-type="action">Action</button>
+                    <button class="format-btn text-[10px] font-bold opacity-60 hover:opacity-100 text-current hover:text-blue-500 uppercase tracking-widest whitespace-nowrap" data-type="char">Character</button>
+                    <button class="format-btn text-[10px] font-bold opacity-60 hover:opacity-100 text-current hover:text-blue-500 uppercase tracking-widest whitespace-nowrap" data-type="dial">Dialogue</button>
+                    <div class="w-[1px] h-4 bg-white/20 mx-2 shrink-0"></div>
+                    <button id="importScriptBtn" class="flex items-center gap-2 text-[10px] font-bold opacity-60 hover:opacity-100 text-current hover:text-blue-500 uppercase tracking-widest transition whitespace-nowrap">
+                        <i class="fa-solid fa-file-import"></i> Import
+                    </button>
+                    <input type="file" id="scriptFileInput" class="hidden" accept=".txt,.fountain">
                 </div>
-                <div class="flex-1 overflow-y-auto p-8 flex justify-center">
-                    <div id="stripboardContainer" class="w-full max-w-5xl space-y-8 pb-20">
-                        <div class="glass-panel p-6 rounded-2xl border-dashed border-gray-500/30">
-                            <h4 class="text-xs opacity-50 uppercase font-bold mb-4 tracking-widest">Unscheduled Shots</h4>
+                <div class="flex-1 overflow-y-auto">
+                    <div id="scriptContent" contenteditable="true" class="script-page text-opacity-90 text-current" placeholder="FADE IN..."></div>
+                </div>
+            </section>
+
+            <section id="viewShots" class="absolute inset-0 flex flex-col bg-transparent translate-y-10 opacity-0 pointer-events-none">
+                <div class="h-16 px-4 md:px-8 border-b border-white/10 flex items-center justify-between shrink-0 bg-[var(--card-bg)] backdrop-blur-md z-10">
+                    <div class="flex items-center gap-4 w-full">
+                        <div class="relative w-full">
+                            <i class="fa-solid fa-filter absolute left-3 top-3 text-xs opacity-40 text-current"></i>
+                            <input type="text" id="shotFilter" placeholder="Search..." class="bg-black/20 border border-white/10 rounded-full py-2 pl-9 pr-4 text-xs w-full focus:border-blue-500 outline-none transition text-current">
+                        </div>
+                        <button id="btnAddSetup" class="bg-blue-600 text-white w-9 h-9 md:w-auto md:px-4 md:py-2 rounded-full text-xs font-bold transition flex items-center justify-center gap-2 shrink-0">
+                            <i class="fa-solid fa-plus"></i> <span class="hidden md:inline">Setup</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 md:p-8" id="masterShotContainer"></div>
+            </section>
+
+            <section id="viewSchedule" class="absolute inset-0 flex flex-col bg-transparent translate-y-10 opacity-0 pointer-events-none">
+                <div class="h-16 px-4 md:px-8 border-b border-white/10 flex items-center justify-between shrink-0 bg-[var(--card-bg)] backdrop-blur-md z-10">
+                    <h2 class="font-bold text-lg">Stripboard</h2>
+                    <button id="addDayBtn" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-xs font-bold transition text-current">+ Day</button>
+                </div>
+                <div class="flex-1 overflow-y-auto p-4 md:p-8 flex justify-center">
+                    <div id="stripboardContainer" class="w-full max-w-5xl space-y-8">
+                        <div class="themed-card p-4 rounded-2xl border-dashed border-gray-500/30">
+                            <h4 class="text-xs opacity-50 uppercase font-bold mb-4 tracking-widest">Unscheduled</h4>
                             <div id="unscheduledList" class="min-h-[60px] flex flex-wrap gap-2"></div>
                         </div>
                         <div id="scheduledDaysContainer" class="space-y-8"></div>
                     </div>
                 </div>
+            </section>
+
+            <div id="commentDrawer" class="shadow-2xl">
+                <div class="h-14 border-b border-white/10 flex items-center justify-between px-6 shrink-0">
+                    <h3 class="font-bold text-sm">Comments</h3>
+                    <button id="closeComments" class="text-gray-500 hover:text-current transition"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="commentList" class="flex-1 overflow-y-auto p-6 space-y-4"></div>
+                <div class="p-4 border-t border-white/10 bg-black/5">
+                    <input type="text" id="commentInput" placeholder="Write a note..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-current outline-none focus:border-blue-500 transition">
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="exportModal" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-md rounded-3xl p-8 bg-[#09090b] shadow-2xl transform scale-95 opacity-0 modal-content">
-            <h3 class="text-2xl font-bold mb-2">Export Project</h3>
-            <p class="text-gray-400 text-sm mb-6">Choose what you want to include in your PDF.</p>
-            <div class="space-y-3">
-                <button id="expScript" class="interact-btn w-full p-4 rounded-xl border border-white/10 hover:bg-white/5 flex items-center justify-between group transition">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center"><i class="fa-solid fa-file-lines"></i></div>
-                        <div class="text-left"><div class="font-bold">Script Only</div><div class="text-xs text-gray-500">Standard screenplay format</div></div>
+    <div id="teamModal" class="modal-container fixed inset-0 bg-black/60 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl modal-content flex flex-col border border-white/10 bg-[#18181b] scale-90 opacity-0" style="background: var(--modal-bg);">
+            <div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold">Project Team</h3><button id="closeTeamModal" class="text-gray-500 hover:text-current"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="flex gap-2 mb-6"><input type="email" id="inviteEmail" class="pro-input flex-1" placeholder="email@example.com"><select id="inviteRole" class="pro-input w-28 bg-white/5"><option value="director">Director</option><option value="dp">DoP</option><option value="ad">1st AD</option><option value="producer">Producer</option></select><button id="btnInvite" class="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 transition">Invite</button></div>
+            <div class="text-xs font-bold uppercase text-gray-500 mb-2">Members</div>
+            <div id="teamList" class="max-h-60 overflow-y-auto"></div>
+            <div class="mt-6 pt-4 border-t border-white/10 bg-blue-500/5 -mx-6 px-6 -mb-6 pb-6 rounded-b-3xl"><div class="flex items-center justify-between"><div><div class="text-xs font-bold text-blue-400">Preview Permissions</div><div class="text-[10px] opacity-50">View this project as another role.</div></div><select id="previewRoleSelect" class="pro-input w-32 text-xs py-1 h-8"><option value="director">Director</option><option value="dp">DoP</option><option value="ad">1st AD</option><option value="producer">Producer</option></select></div></div>
+        </div>
+    </div>
+
+    <div id="exportModal" class="modal-container fixed inset-0 bg-black/80 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="w-full max-w-lg rounded-3xl p-8 shadow-2xl modal-content flex flex-col gap-6 border border-white/10" style="background: #18181b; color: white;">
+            
+            <div class="text-center border-b border-white/10 pb-6">
+                <h3 class="text-2xl font-bold mb-2 text-white">Export Project</h3>
+                <p class="text-sm text-gray-400">Generate a professional PDF package.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-5">
+                <div class="col-span-2">
+                    <label class="pro-label">Project Title</label>
+                    <input type="text" id="metaTitle" class="pro-input" placeholder="e.g. The Big Scene">
+                </div>
+                <div>
+                    <label class="pro-label">Director</label>
+                    <input type="text" id="metaDirector" class="pro-input" placeholder="Name">
+                </div>
+                <div>
+                    <label class="pro-label">DoP</label>
+                    <input type="text" id="metaDop" class="pro-input" placeholder="Name">
+                </div>
+                <div>
+                    <label class="pro-label">Date</label>
+                    <input type="date" id="metaDate" class="pro-input" style="color-scheme: dark;"> 
+                </div>
+                <div>
+                    <label class="pro-label">Version</label>
+                    <input type="text" id="metaVer" class="pro-input" value="Draft 1.0">
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <label class="flex items-center gap-3 p-4 flex-1 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
+                    <input type="checkbox" id="chkScript" checked class="pro-checkbox">
+                    <div class="flex-1">
+                        <div class="text-sm font-bold text-white group-hover:text-blue-400 transition">Script</div>
                     </div>
-                    <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition"></i>
+                    <i class="fa-solid fa-file-lines text-blue-500 text-lg"></i>
+                </label>
+                <label class="flex items-center gap-3 p-4 flex-1 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
+                    <input type="checkbox" id="chkShots" checked class="pro-checkbox">
+                    <div class="flex-1">
+                        <div class="text-sm font-bold text-white group-hover:text-purple-400 transition">Shot List</div>
+                    </div>
+                    <i class="fa-solid fa-clapperboard text-purple-500 text-lg"></i>
+                </label>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button id="closeModal" class="flex-1 py-3.5 rounded-xl font-bold text-sm text-gray-400 hover:text-white hover:bg-white/10 transition border border-transparent hover:border-white/10">
+                    Cancel
                 </button>
-                <button id="expShots" class="interact-btn w-full p-4 rounded-xl border border-white/10 hover:bg-white/5 flex items-center justify-between group transition">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center"><i class="fa-solid fa-list-check"></i></div>
-                        <div class="text-left"><div class="font-bold">Shot List Only</div><div class="text-xs text-gray-500">Visuals, descriptions & times</div></div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition"></i>
-                </button>
-                <button id="expFull" class="interact-btn w-full p-4 rounded-xl bg-blue-600 hover:bg-blue-700 flex items-center justify-between group transition shadow-lg shadow-blue-500/20">
-                    <div class="flex items-center gap-4">
-                        <div class="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center"><i class="fa-solid fa-briefcase"></i></div>
-                        <div class="text-left text-white"><div class="font-bold">Production Package</div><div class="text-xs opacity-80">Script + Shot List combined</div></div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right text-white"></i>
+                <button id="btnGeneratePdf" class="flex-[2] bg-blue-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-600/20 active:scale-95 transform">
+                    Download PDF
                 </button>
             </div>
-            <button id="closeModal" class="interact-btn mt-6 w-full py-3 text-sm text-gray-500 hover:text-white transition">Cancel</button>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="js/theme.js"></script>
     <script src="js/create.js"></script>
 </body>
 </html>
