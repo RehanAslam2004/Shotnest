@@ -56,38 +56,28 @@
         /* --- INPUT STYLES (FIXED CONTRAST) --- */
         .pro-input { 
             width: 100%; 
-            background-color: rgba(255, 255, 255, 0.08) !important; /* Forces Dark BG */
+            background-color: rgba(255, 255, 255, 0.08) !important; 
             border: 1px solid rgba(255, 255, 255, 0.15); 
             padding: 10px 12px; 
             border-radius: 8px; 
             font-size: 13px; 
-            color: #ffffff !important; /* Forces White Text */
+            color: #ffffff !important; 
             outline: none; 
             transition: 0.2s; 
             font-weight: 500; 
         }
-        
         .light-mode .pro-input {
-            background-color: #f1f5f9 !important;
-            border-color: #e2e8f0;
-            color: #1e293b !important;
+            background-color: #f1f5f9 !important; border-color: #e2e8f0; color: #1e293b !important;
         }
-
         .pro-input:focus { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1) !important; }
-        
         .pro-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; display: block; letter-spacing: 0.05em; }
-        
         .pro-checkbox { appearance: none; width: 18px; height: 18px; border: 2px solid #9ca3af; border-radius: 5px; background: transparent; cursor: pointer; position: relative; transition: all 0.2s; }
         .pro-checkbox:checked { background: #3b82f6; border-color: #3b82f6; }
         .pro-checkbox:checked::after { content: '\f00c'; font-family: "Font Awesome 6 Free"; font-weight: 900; color: white; font-size: 10px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
         /* --- SCRIPT FORMATTING --- */
-        #scriptContent { 
-            font-family: 'Courier Prime', monospace; font-size: 16px; line-height: 1.5; outline: none; 
-            padding: 60px; max-width: 800px; margin: 0 auto; min-height: 100%; white-space: pre-wrap; 
-        }
+        #scriptContent { font-family: 'Courier Prime', monospace; font-size: 16px; line-height: 1.5; outline: none; padding: 60px; max-width: 800px; margin: 0 auto; min-height: 100%; white-space: pre-wrap; }
         @media (max-width: 768px) { #scriptContent { padding: 20px 15px; font-size: 14px; } }
-
         .script-scene { font-weight: 800 !important; text-transform: uppercase !important; margin-top: 24px !important; margin-bottom: 8px !important; background: rgba(125, 125, 125, 0.1); padding: 8px 12px; border-radius: 4px; display: block; }
         .script-action { text-align: left !important; margin-bottom: 12px !important; display: block; }
         .script-char { text-align: center !important; font-weight: 700 !important; text-transform: uppercase !important; margin-top: 16px !important; margin-bottom: 0 !important; width: 60%; margin-left: auto; margin-right: auto; display: block; }
@@ -103,7 +93,6 @@
         .status-draft { background: rgba(125,125,125,0.1); color: var(--icon-color); border-color: var(--glass-border); }
         .status-approved { background: rgba(34, 197, 94, 0.1); color: #4ade80; border-color: rgba(34, 197, 94, 0.2); }
         .status-fix { background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.2); }
-        
         #commentDrawer { position: absolute; top: 0; right: 0; bottom: 0; width: 320px; background: var(--card-bg); border-left: 1px solid var(--glass-border); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); z-index: 50; display: flex; flex-direction: column; }
         #commentDrawer.open { transform: translateX(0); }
         .msg-bubble { background: var(--input-bg); padding: 10px; border-radius: 12px; font-size: 13px; margin-bottom: 10px; border: 1px solid var(--glass-border); color: var(--text-color); }
@@ -136,10 +125,9 @@
             </div>
             
             <div class="flex items-center gap-2 md:gap-3">
-                <div class="hidden sm:flex -space-x-2 mr-2">
-                    <div class="w-7 h-7 rounded-full bg-blue-500 border-2 border-[var(--bg-color)] flex items-center justify-center text-[10px] font-bold text-white">YO</div>
-                    <div class="w-7 h-7 rounded-full bg-green-500 border-2 border-[var(--bg-color)] flex items-center justify-center text-[10px] font-bold opacity-50 text-white">PR</div>
-                </div>
+                <div id="teamAvatarContainer" class="flex -space-x-2 mr-2">
+                    </div>
+
                 <button id="triggerTeam" class="w-9 h-9 md:h-9 md:px-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition text-xs font-bold flex items-center justify-center gap-2 text-current">
                     <i class="fa-solid fa-user-plus"></i> <span class="hidden md:inline">Share</span>
                 </button>

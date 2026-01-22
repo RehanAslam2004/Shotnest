@@ -3,151 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shotnest | Production OS</title>
+    <title>Shotnest | The OS for Production</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap');
         
-        :root {
-            --bg-color: #050505;
-            --text-color: #ffffff;
-            --card-bg: rgba(255,255,255,0.03);
-            --border-color: rgba(255,255,255,0.08);
-            --nav-bg: rgba(5, 5, 5, 0.8);
-            --glow-color: rgba(59,130,246,0.15);
+        body { font-family: 'Outfit', sans-serif; background-color: #09090b; color: white; }
+        
+        .hero-pattern {
+            background-image: radial-gradient(rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
 
-        .light-mode {
-            --bg-color: #f8fafc;
-            --text-color: #1e293b;
-            --card-bg: #ffffff;
-            --border-color: rgba(0,0,0,0.05);
-            --nav-bg: rgba(255, 255, 255, 0.9);
-            --glow-color: rgba(37, 99, 235, 0.05);
-        }
-        
-        body { font-family: 'Outfit', sans-serif; background: var(--bg-color); color: var(--text-color); overflow-x: hidden; transition: background 0.3s ease, color 0.3s ease; }
-        
-        .hero-glow {
-            position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, var(--glow-color) 0%, rgba(0,0,0,0) 70%);
-            top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: -1;
+        /* --- 1. THE SHIMMERING GRADIENT --- */
+        .gradient-text {
+            background: linear-gradient(to right, #60a5fa, #a855f7, #60a5fa);
+            background-size: 200% auto;
+            color: transparent; /* Fallback */
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 4s linear infinite;
         }
 
-        .nav-glass { background: var(--nav-bg); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-color); transition: background 0.3s ease, border-color 0.3s ease; }
-        
-        .feature-card {
-            background: var(--card-bg); border: 1px solid var(--border-color);
-            padding: 30px; border-radius: 20px; transition: all 0.3s;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        @keyframes shine {
+            to { background-position: 200% center; }
         }
-        .feature-card:hover { border-color: rgba(59, 130, 246, 0.3); transform: translateY(-5px); }
 
-        .btn-primary {
-            background: #2563eb; color: white; font-weight: 700; padding: 12px 32px; border-radius: 12px;
-            transition: all 0.2s; box-shadow: 0 10px 30px -10px rgba(37, 99, 235, 0.5);
+        /* --- 2. THE SLIDER LAYOUT (FIXED) --- */
+        /* This container just holds the space and hides the text moving out */
+        .word-slider-wrapper {
+            display: inline-flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 1.2em; /* Matches font-size height */
+            vertical-align: bottom;
+            position: relative;
         }
-        .btn-primary:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 15px 35px -10px rgba(37, 99, 235, 0.6); }
 
-        .scroller span { display: block; height: 1.2em; animation: scroll 6s infinite cubic-bezier(0.8, 0, 0.2, 1); }
-        @keyframes scroll { 0%, 20% { transform: translateY(0); } 33%, 53% { transform: translateY(-1.2em); } 66%, 86% { transform: translateY(-2.4em); } 100% { transform: translateY(0); } }
+        /* This is the text moving inside the container */
+        .sliding-text {
+            display: inline-block;
+            line-height: 1.2em;
+        }
+
+        /* The Animation Class */
+        .slide-up-enter {
+            animation: slideUpIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        @keyframes slideUpIn {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* --- 3. PAGE ENTRANCE --- */
+        .animate-up { opacity: 0; animation: fadeInUp 0.8s ease-out forwards; }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-300 { animation-delay: 0.3s; }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
-
-    <nav class="nav-glass fixed top-0 w-full z-50">
-        <div class="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+<body class="overflow-x-hidden">
+    
+    <nav class="fixed top-0 w-full z-50 backdrop-blur-md bg-black/50 border-b border-white/10">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white"><i class="fa-solid fa-layer-group text-sm"></i></div>
-                <span class="font-bold text-xl tracking-tight">Shotnest</span>
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid fa-layer-group text-white text-lg"></i>
+                </div>
+                <span class="text-xl font-bold tracking-tight">Shotnest</span>
             </div>
-            
-            <div class="flex gap-4 items-center">
-                <button id="themeToggle" class="w-9 h-9 rounded-full hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center transition text-current opacity-70 hover:opacity-100">
-                    <i class="fa-solid fa-moon"></i>
-                </button>
-                <a href="/login" class="text-sm font-bold text-white bg-blue-600 px-5 py-2.5 rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-500/20">Log In</a>
+            <div class="flex gap-4">
+                <a href="/login" class="text-sm font-bold text-gray-300 hover:text-white transition py-2 px-4">Log In</a>
+                <a href="/login" class="bg-white text-black px-5 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition shadow-lg shadow-white/10">Get Started</a>
             </div>
         </div>
     </nav>
 
-    <main class="flex-1 flex flex-col items-center justify-center text-center px-4 pt-32 pb-20 relative overflow-hidden">
-        <div class="hero-glow"></div>
+    <div class="relative pt-40 pb-20 px-6 min-h-screen flex flex-col justify-center items-center text-center overflow-hidden">
         
-        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-bold uppercase tracking-widest mb-8">
-            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-            v1.0 Now Live
+        <div class="absolute top-20 left-[20%] w-96 h-96 bg-blue-600 rounded-full blur-[180px] opacity-20 animate-pulse"></div>
+        <div class="absolute bottom-20 right-[20%] w-96 h-96 bg-purple-600 rounded-full blur-[180px] opacity-20"></div>
+
+        <div class="relative z-10 max-w-4xl mx-auto">
+            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 mb-8 backdrop-blur-sm animate-up">
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                <span class="text-xs font-bold uppercase tracking-widest text-gray-400">v1.0 Now Live</span>
+            </div>
+            
+            <h1 class="text-5xl md:text-7xl font-bold leading-tight mb-8 animate-up delay-100">
+                The Operating System for <br> 
+                <span class="word-slider-wrapper">
+                    <span id="dynamicWord" class="gradient-text sliding-text slide-up-enter">Modern Filmmakers</span>
+                </span>
+            </h1>
+            
+            <p class="text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed animate-up delay-200">
+                Stop juggling Google Docs, Spreadsheets, and WhatsApp. Write scripts, build shot lists, and schedule your shoot—all in one real-time workspace.
+            </p>
+            
+            <div class="flex flex-col md:flex-row gap-4 justify-center items-center animate-up delay-300">
+                <a href="/login" class="bg-blue-600 hover:bg-blue-500 text-white text-lg font-bold px-8 py-4 rounded-2xl transition transform hover:scale-105 shadow-xl shadow-blue-600/20 w-full md:w-auto flex items-center gap-3">
+                    Start Creating Free <i class="fa-solid fa-arrow-right text-sm"></i>
+                </a>
+            </div>
         </div>
 
-        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 leading-[1.1]">
-            Your film needs a<br>
-            <div class="h-[1.2em] overflow-hidden text-blue-500 inline-block align-bottom scroller">
-                <span>Better Script.</span>
-                <span>Visual Plan.</span>
-                <span>Solid Schedule.</span>
-            </div>
-        </h1>
-        
-        <p class="text-lg md:text-xl opacity-60 max-w-2xl mb-10 leading-relaxed">
-            Stop switching between Docs, Excel, and PDF tools. Shotnest unifies your entire pre-production workflow into one fluid workspace.
-        </p>
-        
-        <div class="flex flex-col md:flex-row gap-4">
-            <a href="/login" class="btn-primary flex items-center gap-3">
-                Get Started <i class="fa-solid fa-arrow-right"></i>
-            </a>
-            <a href="#" class="px-8 py-3 rounded-xl font-bold opacity-70 hover:opacity-100 border border-current hover:bg-current hover:text-black transition flex items-center gap-2">
-                <i class="fa-solid fa-play text-xs"></i> Watch Demo
-            </a>
-        </div>
-
-        <div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full text-left px-4">
-            <div class="feature-card group">
-                <div class="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-500 flex items-center justify-center mb-4 text-xl group-hover:scale-110 transition"><i class="fa-solid fa-pen-nib"></i></div>
-                <h3 class="text-lg font-bold mb-2">Distraction-Free Writing</h3>
-                <p class="text-sm opacity-60">Industry standard formatting that stays out of your way.</p>
-            </div>
-            <div class="feature-card group">
-                <div class="w-10 h-10 rounded-lg bg-purple-500/20 text-purple-500 flex items-center justify-center mb-4 text-xl group-hover:scale-110 transition"><i class="fa-solid fa-clapperboard"></i></div>
-                <h3 class="text-lg font-bold mb-2">Visual Shot Lists</h3>
-                <p class="text-sm opacity-60">Drag, drop, and tag shots with lens, camera, and lighting data.</p>
-            </div>
-            <div class="feature-card group">
-                <div class="w-10 h-10 rounded-lg bg-green-500/20 text-green-500 flex items-center justify-center mb-4 text-xl group-hover:scale-110 transition"><i class="fa-regular fa-calendar-check"></i></div>
-                <h3 class="text-lg font-bold mb-2">Smart Scheduling</h3>
-                <p class="text-sm opacity-60">Auto-generate stripboards based on your scene breakdown.</p>
+        <div class="mt-20 relative z-10 w-full max-w-5xl mx-auto rounded-xl border border-white/10 shadow-2xl overflow-hidden bg-[#09090b] animate-up delay-300">
+            <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop" class="w-full opacity-40 grayscale hover:grayscale-0 transition duration-700" alt="Interface Preview" style="mask-image: linear-gradient(to bottom, black 50%, transparent 100%);">
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <p class="text-sm font-bold uppercase tracking-widest text-gray-500">Interactive Preview</p>
             </div>
         </div>
-    </main>
-
-    <footer class="border-t border-white/10 py-10 text-center">
-        <p class="opacity-40 text-sm">© 2026 Shotnest. Built for Filmmakers.</p>
-    </footer>
+    </div>
 
     <script>
-        // Init Theme
-        const themeBtn = document.getElementById('themeToggle');
-        const savedTheme = localStorage.getItem('theme');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light-mode');
-            themeBtn.innerHTML = '<i class="fa-solid fa-sun"></i>';
-        }
+        const words = ["Modern Filmmakers", "Indie Creators", "Visual Storytellers", "Screenwriters"];
+        let index = 0;
+        const textElement = document.getElementById("dynamicWord");
 
-        themeBtn.addEventListener('click', () => {
-            document.body.classList.toggle('light-mode');
-            const isLight = document.body.classList.contains('light-mode');
-            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+        setInterval(() => {
+            index = (index + 1) % words.length;
             
-            gsap.to(themeBtn, { rotation: 360, duration: 0.5, onComplete: () => {
-                themeBtn.innerHTML = isLight ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
-                gsap.set(themeBtn, { rotation: 0 });
-            }});
-        });
-
-        gsap.from("h1", { y: 20, opacity: 0, duration: 0.8, ease: "power2.out" });
-        gsap.from("p", { y: 20, opacity: 0, duration: 0.8, delay: 0.2, ease: "power2.out" });
-        gsap.from(".feature-card", { y: 30, opacity: 0, duration: 0.6, stagger: 0.1, delay: 0.4 });
+            // 1. Reset Animation by removing class
+            textElement.classList.remove("slide-up-enter");
+            
+            // 2. Trigger Reflow (Magic trick to restart CSS animation immediately)
+            void textElement.offsetWidth; 
+            
+            // 3. Change Text & Re-add Class
+            textElement.innerText = words[index];
+            textElement.classList.add("slide-up-enter");
+            
+        }, 3000); // Changes every 3 seconds
     </script>
+
 </body>
 </html>

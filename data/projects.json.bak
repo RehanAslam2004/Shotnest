@@ -22,11 +22,23 @@
   {
     "id": "mko3zhyx7tuhig86wh7",
     "title": "Untitled Project",
-    "scriptHtml": "how are you fwa",
+    "scriptHtml": "<div class=\"script-dial\">how are you hi can you see this</div>",
     "setups": [
       {
         "title": "Scene 1 Setup",
-        "shots": []
+        "shots": [
+          {
+            "id": "1",
+            "type": "Wide",
+            "angle": "Eye",
+            "desc": "camera on person face",
+            "lens": "9mm",
+            "fps": "24 fps",
+            "time": "5",
+            "status": "draft",
+            "image": ""
+          }
+        ]
       }
     ],
     "schedule": [
@@ -39,9 +51,13 @@
       {
         "email": "you@shotnest.com",
         "role": "director"
+      },
+      {
+        "email": "rehan2004aslam@gmail.com",
+        "role": "producer"
       }
     ],
-    "savedAt": 1769008037661,
+    "savedAt": 1769069032993,
     "isFavorite": false,
     "isArchived": false
   },
