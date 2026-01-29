@@ -1,36 +1,48 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    // --- 1. CONFIGURATION ---
+    // 🔴 IMPORTANT: Paste your keys INSIDE the quotes '' below
+    const SUPABASE_URL = 'https://biybxhxvbqzbthzfzubg.supabase.co'; 
+    const SUPABASE_KEY = 'sb_publishable_zIZKrNotbFRygVX9MGAKQA_6JoiAPrv'; 
+    
+    // Initialize Supabase
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // --- GLOBALS ---
     const socket = io();
     const urlParams = new URLSearchParams(window.location.search);
     const projectId = urlParams.get('id') || 'demo'; 
-    
-    // --- 1. ROLE MANAGEMENT (FIXED) ---
-    // If ?role=producer is in URL, use it. Otherwise default to Director.
     const urlRole = urlParams.get('role');
     let currentRole = urlRole || 'director'; 
     let projectTeam = [{ email: 'you@shotnest.com', role: 'director' }];
     let saveInterval;
-
-    // --- 2. INITIALIZATION & PRESENCE ---
     const myEmail = "User" + Math.floor(Math.random() * 100); 
+
+    // DOM Elements
+    const scriptEditor = document.getElementById('scriptContent');
+    const masterContainer = document.getElementById('masterShotContainer');
+    const teamHeaderContainer = document.getElementById('teamAvatarContainer');
+    const projectTitleInput = document.getElementById('projectTitle');
     
+    // --- 2. CONNECT TO SERVER ---
     socket.on('connect', () => {
         console.log("Connected. Joining project:", projectId);
         socket.emit('join-project', { projectId, userEmail: myEmail });
     });
     if (socket.connected) socket.emit('join-project', { projectId, userEmail: myEmail });
     
-    // Update Badge UI immediately based on URL role
     const currentRoleBadge = document.getElementById('currentRoleBadge');
     if(currentRoleBadge) currentRoleBadge.innerText = currentRole.toUpperCase() + " MODE";
     
+    // --- 3. STARTUP SEQUENCE ---
     loadProjectData();
     initTheme();
     setupAutoSave();
+    setupSmartFormatting(); 
     
     setTimeout(() => switchTab('script'), 100); 
 
-    const teamHeaderContainer = document.getElementById('teamAvatarContainer');
+    // --- 4. TEAM SYNC ---
     socket.on('room-users-update', (users) => {
         if (!teamHeaderContainer) return;
         teamHeaderContainer.innerHTML = ''; 
@@ -44,8 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 3. SCRIPT FORMATTING ---
-    const scriptEditor = document.getElementById('scriptContent');
+    // --- 5. FORMATTING BUTTONS ---
     document.querySelectorAll('.format-btn').forEach(btn => {
         btn.addEventListener('mousedown', (e) => {
             e.preventDefault(); 
@@ -55,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function formatLine(type) {
-        if (currentRole !== 'director' && currentRole !== 'writer') return; // Basic permission check
+        if (currentRole !== 'director' && currentRole !== 'writer') return; 
         scriptEditor.focus(); 
         const selection = window.getSelection();
         if (!selection.rangeCount) return;
@@ -82,7 +93,109 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 4. REAL-TIME SYNC ---
+    // --- 6. SMART FORMATTING ENGINE ---
+    function setupSmartFormatting() {
+        if (!scriptEditor) return;
+
+        // Ensure editor is never truly "empty"
+        scriptEditor.addEventListener('input', () => {
+            if (scriptEditor.innerHTML.trim() === '' || scriptEditor.innerHTML === '<br>') {
+                scriptEditor.innerHTML = '<div class="script-action"><br></div>';
+            }
+        });
+
+        scriptEditor.addEventListener('keydown', (e) => {
+            // TAB: Switch Type
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                
+                let node = selection.anchorNode;
+                while (node && (node.nodeType !== 1 || node.tagName !== 'DIV') && node !== scriptEditor) {
+                    node = node.parentNode;
+                }
+                
+                if (node === scriptEditor) {
+                    document.execCommand('formatBlock', false, 'div');
+                    node = window.getSelection().anchorNode.parentNode;
+                    node.className = 'script-action';
+                }
+                
+                if (node && node !== scriptEditor) {
+                    if (node.classList.contains('script-action') || node.classList.length === 0) {
+                        node.className = 'script-char';
+                    } else if (node.classList.contains('script-char')) {
+                        node.className = 'script-action';
+                    } else if (node.classList.contains('script-dial')) {
+                        node.className = 'script-char'; 
+                    }
+                    socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
+                }
+            } 
+            
+            // ENTER: Smart Flow
+            if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault();
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                
+                let currentNode = selection.anchorNode;
+                while (currentNode && (currentNode.nodeType !== 1 || currentNode.tagName !== 'DIV') && currentNode !== scriptEditor) {
+                    currentNode = currentNode.parentNode;
+                }
+
+                let nextType = 'script-action'; 
+                
+                if (currentNode && currentNode !== scriptEditor) {
+                    if (currentNode.classList.contains('script-scene')) nextType = 'script-action';
+                    else if (currentNode.classList.contains('script-char')) nextType = 'script-dial';
+                    else if (currentNode.classList.contains('script-dial')) nextType = 'script-action';
+                    else if (currentNode.classList.contains('script-action')) nextType = 'script-action';
+                }
+
+                const newDiv = document.createElement('div');
+                newDiv.className = nextType;
+                newDiv.innerHTML = '<br>'; 
+                
+                if (currentNode && currentNode !== scriptEditor && currentNode.nextSibling) {
+                    scriptEditor.insertBefore(newDiv, currentNode.nextSibling);
+                } else {
+                    scriptEditor.appendChild(newDiv);
+                }
+
+                const range = document.createRange();
+                range.selectNodeContents(newDiv);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                
+                newDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
+            }
+        });
+        
+        // AUTO-SCENE: Detect INT./EXT.
+        scriptEditor.addEventListener('input', (e) => {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+            
+            let node = selection.anchorNode;
+            while (node && (node.nodeType !== 1 || node.tagName !== 'DIV') && node !== scriptEditor) {
+                node = node.parentNode;
+            }
+            
+            if (node && node !== scriptEditor) {
+                const text = node.innerText.toUpperCase().trim();
+                if ((text.startsWith('INT.') || text.startsWith('EXT.') || text.startsWith('I/E')) && !node.classList.contains('script-scene')) {
+                    node.className = 'script-scene';
+                    socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
+                }
+            }
+        });
+    }
+
+    // --- 7. REAL-TIME SYNC ---
     function debounce(func, wait) {
         let timeout;
         return function(...args) {
@@ -118,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.field === 'angle') updateField('.shot-angle', data.value);
     });
 
-    // --- 5. SHOT LIST LOGIC ---
+    // --- 8. SHOT LIST LOGIC & SUPABASE UPLOAD ---
     function createShotCard(shot = {}, container, emitEvent = true) {
         const s = {
             id: shot.id || 'shot-' + Date.now() + Math.floor(Math.random()*1000), 
@@ -131,6 +244,11 @@ document.addEventListener('DOMContentLoaded', () => {
         card.setAttribute('data-id', s.id);
         const statusColors = { 'draft': 'status-draft', 'approved': 'status-approved', 'fix': 'status-fix' };
         
+        // Check if image is present
+        const imageContent = s.image 
+            ? `<img src="${s.image}" class="w-full h-full object-cover">` 
+            : `<i class="fa-solid fa-image text-3xl opacity-20"></i>`;
+
         card.innerHTML = `
             <div class="flex justify-between items-center drag-handle cursor-grab active:cursor-grabbing">
                 <div class="flex items-center gap-2">
@@ -143,8 +261,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             <div class="aspect-video bg-black/20 rounded-lg overflow-hidden flex items-center justify-center relative trigger-upload cursor-pointer border border-white/5 hover:border-blue-500/50 transition">
-                ${s.image ? `<img src="${s.image}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-image text-3xl opacity-20"></i>`}
-                <div class="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition text-xs font-bold text-white">CHANGE IMAGE</div>
+                <div class="upload-preview w-full h-full flex items-center justify-center">${imageContent}</div>
+                <div class="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition text-xs font-bold text-white upload-text">CHANGE IMAGE</div>
             </div>
             <div class="flex flex-col gap-2">
                 <div class="flex gap-2">
@@ -200,9 +318,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.remove();
                 updateShotNumbers(container);
             });
-            const imgInput = card.querySelector('.img-input'); const trigger = card.querySelector('.trigger-upload');
+
+            // --- SUPABASE UPLOAD LOGIC ---
+            const imgInput = card.querySelector('.img-input'); 
+            const trigger = card.querySelector('.trigger-upload');
+            const preview = card.querySelector('.upload-preview');
+            const text = card.querySelector('.upload-text');
+            const hiddenStorage = card.querySelector('.shot-img-storage');
+
             trigger.addEventListener('click', () => imgInput.click());
-            imgInput.addEventListener('change', (e) => { if(e.target.files[0]){ const reader = new FileReader(); reader.onload = (ev) => { trigger.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover">`; }; reader.readAsDataURL(e.target.files[0]); } });
+            
+            imgInput.addEventListener('change', async (e) => { 
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Show loading state
+                text.innerText = "UPLOADING...";
+                text.style.opacity = "1";
+                
+                try {
+                    const fileName = `${projectId}/${Date.now()}_${file.name}`;
+                    const { data, error } = await supabase.storage.from('Shot-images').upload(fileName, file);
+                    
+                    if (error) throw error;
+
+                    // Get Public URL
+                    const { data: publicData } = supabase.storage.from('Shot-images').getPublicUrl(fileName);
+                    const publicUrl = publicData.publicUrl;
+
+                    // Update UI
+                    preview.innerHTML = `<img src="${publicUrl}" class="w-full h-full object-cover">`;
+                    hiddenStorage.src = publicUrl;
+                    text.innerText = "CHANGE IMAGE";
+                    text.style.opacity = ""; // Restore hover effect
+
+                    // Sync to Database
+                    socket.emit('shot-update', { projectId, shotId: s.id, changes: { image: publicUrl } });
+
+                } catch (err) {
+                    console.error("Upload failed:", err);
+                    text.innerText = "FAILED";
+                    text.style.color = "red";
+                    setTimeout(() => text.innerText = "CHANGE IMAGE", 2000);
+                }
+            });
         }
     }
     
@@ -219,8 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('shot-created', (data) => { const container = document.getElementById(data.setupId); if(container) createShotCard(data.shot, container, false); });
     socket.on('shot-deleted', (data) => { const card = document.querySelector(`.shot-card-item[data-id="${data.shotId}"]`); if(card) { const container = card.parentElement; card.remove(); updateShotNumbers(container); }});
 
-    // --- 6. SETUP & SAVE ---
-    const masterContainer = document.getElementById('masterShotContainer');
+    // --- 9. SETUP & SAVE ---
     const btnAddSetup = document.getElementById('btnAddSetup');
     
     function createSetupBlock(title="New Setup", existingShots=[], emitEvent=true, explicitId=null) {
@@ -267,103 +425,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if(!res.ok) { createSetupBlock("Scene 1 Setup", [], false); return; } 
             const data = await res.json(); 
             document.getElementById('projectTitle').value = data.title || "Untitled"; 
-            document.getElementById('scriptContent').innerHTML = data.scriptHtml || ''; 
+            document.getElementById('scriptContent').innerHTML = data.scriptHtml || '<div class="script-action"><br></div>'; 
             
-            // Sync Team Data
             if(data.team) projectTeam = data.team;
             
-            const masterContainer = document.getElementById('masterShotContainer'); masterContainer.innerHTML = ''; 
+            masterContainer.innerHTML = ''; 
             if(data.setups && data.setups.length > 0) data.setups.forEach(s => createSetupBlock(s.title, s.shots, false, null)); else createSetupBlock("Scene 1 Setup", [], false); 
             
             const daysContainer = document.getElementById('scheduledDaysContainer'); daysContainer.innerHTML = ''; 
             if(data.schedule && data.schedule.length > 0) { data.schedule.forEach(day => { const title = day.title || `Day`; const shotIds = Array.isArray(day) ? day : (day.shots || []); addDayStrip(title, shotIds); }); } else { addDayStrip("Day 1"); } 
-            
-            enforcePermissions(); 
         } catch(e) { }
     }
 
-    // --- 7. TEAM MANAGEMENT & INVITES (UPDATED) ---
-    // Listen for global project updates (like team changes)
-    socket.on('project-updated', (data) => {
-        if (data.team) {
-            projectTeam = data.team;
-            if (document.getElementById('teamModal').style.display !== 'none') {
-                renderTeam(); // Live update the list if modal is open
-            }
-        }
-    });
-
+    // --- 10. TEAM & UTILS ---
+    socket.on('project-updated', (data) => { if (data.team) { projectTeam = data.team; if (document.getElementById('teamModal').style.display !== 'none') { renderTeam(); } } });
     const btnInvite = document.getElementById('btnInvite');
-    if (btnInvite) {
-        btnInvite.addEventListener('click', () => {
-            const email = document.getElementById('inviteEmail').value;
-            const role = document.getElementById('inviteRole').value;
-            
-            if (email) {
-                // 1. Add to team
-                projectTeam.push({ email, role });
-                renderTeam(); 
-                saveProject(); // This triggers 'project-updated' for everyone
-
-                // 2. Generate SPECIFIC Link for that role
-                // Removes any existing &role params, then appends the new one
-                const baseUrl = window.location.href.split('&role')[0];
-                const inviteLink = `${baseUrl}&role=${role}`;
-
-                navigator.clipboard.writeText(inviteLink).then(() => {
-                    const originalText = btnInvite.innerText;
-                    btnInvite.innerText = "Link Copied!";
-                    btnInvite.classList.replace('bg-blue-600', 'bg-green-600');
-                    setTimeout(() => { 
-                        btnInvite.innerText = originalText; 
-                        btnInvite.classList.replace('bg-green-600', 'bg-blue-600'); 
-                    }, 2000);
-                });
-                document.getElementById('inviteEmail').value = '';
-            }
-        });
-    }
-
-    function renderTeam() { 
-        const list = document.getElementById('teamList'); 
-        list.innerHTML = ''; 
-        projectTeam.forEach((member, index) => { 
-            const row = document.createElement('div'); 
-            row.className = 'team-row'; 
-            
-            // REMOVE BUTTON LOGIC
-            // Don't allow removing yourself (index 0 usually owner) or simple safety check
-            const removeBtn = index > 0 
-                ? `<button class="text-red-500 hover:text-red-400 p-2 transition delete-member" data-index="${index}"><i class="fa-solid fa-trash"></i></button>` 
-                : `<span class="text-xs opacity-30 p-2">OWNER</span>`;
-
-            row.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <div class="avatar-circle">${member.email.substring(0,2).toUpperCase()}</div>
-                    <div>
-                        <div class="text-sm font-bold">${member.email}</div>
-                        <div class="text-xs opacity-50 uppercase">${member.role}</div>
-                    </div>
-                </div>
-                ${removeBtn}
-            `; 
-            list.appendChild(row); 
-        });
-
-        // Attach Delete Listeners
-        document.querySelectorAll('.delete-member').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(btn.getAttribute('data-index'));
-                if (confirm(`Remove ${projectTeam[idx].email}?`)) {
-                    projectTeam.splice(idx, 1);
-                    renderTeam();
-                    saveProject(); // Updates DB and syncs everyone
-                }
-            });
-        });
-    }
-    
-    // --- 8. UTILS & OTHERS ---
+    if (btnInvite) { btnInvite.addEventListener('click', () => { const email = document.getElementById('inviteEmail').value; const role = document.getElementById('inviteRole').value; if (email) { projectTeam.push({ email, role }); renderTeam(); saveProject(); const baseUrl = window.location.href.split('&role')[0]; const inviteLink = `${baseUrl}&role=${role}`; navigator.clipboard.writeText(inviteLink).then(() => { const originalText = btnInvite.innerText; btnInvite.innerText = "Link Copied!"; btnInvite.classList.replace('bg-blue-600', 'bg-green-600'); setTimeout(() => { btnInvite.innerText = originalText; btnInvite.classList.replace('bg-green-600', 'bg-blue-600'); }, 2000); }); document.getElementById('inviteEmail').value = ''; } }); }
+    function renderTeam() { const list = document.getElementById('teamList'); list.innerHTML = ''; projectTeam.forEach((member, index) => { const row = document.createElement('div'); row.className = 'team-row'; const removeBtn = index > 0 ? `<button class="text-red-500 hover:text-red-400 p-2 transition delete-member" data-index="${index}"><i class="fa-solid fa-trash"></i></button>` : `<span class="text-xs opacity-30 p-2">OWNER</span>`; row.innerHTML = `<div class="flex items-center gap-3"><div class="avatar-circle">${member.email.substring(0,2).toUpperCase()}</div><div><div class="text-sm font-bold">${member.email}</div><div class="text-xs opacity-50 uppercase">${member.role}</div></div></div>${removeBtn}`; list.appendChild(row); }); document.querySelectorAll('.delete-member').forEach(btn => { btn.addEventListener('click', (e) => { const idx = parseInt(btn.getAttribute('data-index')); if (confirm(`Remove ${projectTeam[idx].email}?`)) { projectTeam.splice(idx, 1); renderTeam(); saveProject(); } }); }); }
     function setupAutoSave() { document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProject(); }}); saveInterval = setInterval(saveProject, 60000); }
     const saveBtn = document.getElementById('saveBtn'); if(saveBtn) saveBtn.addEventListener('click', saveProject);
     const tabs = { script: { btn: document.getElementById('navScript'), view: document.getElementById('viewScript') }, shots: { btn: document.getElementById('navShots'), view: document.getElementById('viewShots') }, schedule: { btn: document.getElementById('navSchedule'), view: document.getElementById('viewSchedule') } };
@@ -375,7 +453,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function openModal(modalId) { const modal = document.getElementById(modalId); const content = modal.querySelector('.modal-content'); modal.classList.remove('hidden'); modal.style.display = 'flex'; gsap.to(modal, { opacity: 1, duration: 0.2 }); gsap.fromTo(content, { scale: 0.95, y: 10, opacity: 0 }, { scale: 1, y: 0, opacity: 1, duration: 0.3, ease: "back.out(1.7)" }); }
     function closeModal(modalId) { const modal = document.getElementById(modalId); const content = modal.querySelector('.modal-content'); gsap.to(content, { scale: 0.95, y: 10, opacity: 0, duration: 0.2 }); gsap.to(modal, { opacity: 0, duration: 0.2, delay: 0.1, onComplete: () => { modal.classList.add('hidden'); modal.style.display = 'none'; }}); }
     
-    // Schedule Logic
     const unscheduledList = document.getElementById('unscheduledList'); const scheduledDaysContainer = document.getElementById('scheduledDaysContainer'); const addDayBtn = document.getElementById('addDayBtn');
     function emitScheduleUpdate() { const scheduleState = []; document.querySelectorAll('.day-strip').forEach(day => { const title = day.querySelector('.day-title-input').value; const shots = []; day.querySelectorAll('.strip-item').forEach(item => shots.push(item.getAttribute('data-id'))); scheduleState.push({ title, shots }); }); socket.emit('schedule-update', { projectId, schedule: scheduleState }); }
     socket.on('schedule-updated', (data) => { if(document.activeElement.tagName !== 'INPUT') { scheduledDaysContainer.innerHTML = ''; if(data.schedule && data.schedule.length > 0) { data.schedule.forEach(day => addDayStrip(day.title, day.shots, false)); } syncStripboard(); } });
@@ -388,5 +465,129 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('triggerTeam').addEventListener('click', () => { renderTeam(); openModal('teamModal'); }); document.getElementById('closeTeamModal').addEventListener('click', () => closeModal('teamModal')); 
     document.getElementById('closeComments').addEventListener('click', () => { document.getElementById('commentDrawer').classList.remove('open'); activeShotId = null; }); function openComments(shotId) { activeShotId = shotId; document.getElementById('commentList').innerHTML = ''; addCommentBubble("Can we get a tighter angle here?", "DoP", false); document.getElementById('commentDrawer').classList.add('open'); } document.getElementById('commentInput').addEventListener('keypress', (e) => { if (e.key === 'Enter' && e.target.value) { addCommentBubble(e.target.value, "You", true); socket.emit('new-comment', { projectId, shotId: activeShotId, text: e.target.value, user: "Director" }); e.target.value = ''; }}); function addCommentBubble(text, user, isMe) { const div = document.createElement('div'); div.className = `msg-bubble ${isMe ? 'border-blue-500/30 bg-blue-500/10' : ''}`; div.innerHTML = `<div class="text-[10px] font-bold opacity-50 mb-1 flex justify-between"><span>${user}</span><span>Now</span></div><div class="leading-relaxed">${text}</div>`; document.getElementById('commentList').appendChild(div); }
     const importBtn = document.getElementById('importScriptBtn'); const fileInput = document.getElementById('scriptFileInput'); if(importBtn && fileInput) { importBtn.addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if(file) { const reader = new FileReader(); reader.onload = (ev) => { document.getElementById('scriptContent').innerText = ev.target.result; }; reader.readAsText(file); } }); }
-    const projectTitleInput = document.getElementById('projectTitle'); document.getElementById('triggerExport').addEventListener('click', () => { document.getElementById('metaTitle').value = projectTitleInput.value; openModal('exportModal'); }); document.getElementById('closeModal').addEventListener('click', () => closeModal('exportModal')); document.getElementById('btnGeneratePdf').addEventListener('click', () => { closeModal('exportModal'); alert('PDF Generated'); });
-});
+    
+    // --- 11. PDF EXPORT (PDFMAKE) ---
+    const triggerExportBtn = document.getElementById('triggerExport');
+    if (triggerExportBtn) {
+        triggerExportBtn.addEventListener('click', () => { 
+            document.getElementById('metaTitle').value = projectTitleInput.value; 
+            openModal('exportModal'); 
+        }); 
+    }
+    
+    const closeModalBtn = document.getElementById('closeModal');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => closeModal('exportModal')); 
+    }
+    
+    const generatePdfBtn = document.getElementById('btnGeneratePdf');
+    if (generatePdfBtn) {
+        generatePdfBtn.addEventListener('click', () => {
+            const btn = document.getElementById('btnGeneratePdf');
+            const originalText = btn.innerText;
+            btn.innerText = "Generating...";
+            btn.disabled = true;
+
+            const title = document.getElementById('metaTitle').value || "Untitled Project";
+            const director = document.getElementById('metaDirector').value || "";
+            const dop = document.getElementById('metaDop').value || "";
+            const date = document.getElementById('metaDate').value || "";
+            const version = document.getElementById('metaVer').value || "Draft 1.0";
+
+            // 1. Build Content Array for PDFMake
+            const content = [];
+
+            // Title Page
+            content.push({ text: title.toUpperCase(), style: 'titleMain', margin: [0, 200, 0, 10] });
+            content.push({ text: 'Written by', style: 'titleSub' });
+            content.push({ text: director, style: 'titleSub', margin: [0, 0, 0, 100] });
+            
+            if(dop) content.push({ text: `Cinematography by ${dop}`, style: 'titleSub' });
+            content.push({ text: `${version} • ${date}`, style: 'titleSub', margin: [0, 50, 0, 0], pageBreak: 'after' });
+
+            // Script Section
+            if(document.getElementById('chkScript').checked) {
+                content.push({ text: 'SCREENPLAY', style: 'sectionHeader' });
+                
+                const scriptDiv = document.getElementById('scriptContent');
+                Array.from(scriptDiv.children).forEach(node => {
+                    let style = 'action'; // default
+                    let text = node.innerText || '';
+                    if(!text.trim()) return;
+
+                    if (node.classList.contains('script-scene')) style = 'scene';
+                    else if (node.classList.contains('script-char')) style = 'character';
+                    else if (node.classList.contains('script-dial')) style = 'dialogue';
+                    
+                    content.push({ text: text, style: style });
+                });
+                content.push({ text: '', pageBreak: 'after' });
+            }
+
+            // Shot List Section
+            if(document.getElementById('chkShots').checked) {
+                content.push({ text: 'SHOT LIST', style: 'sectionHeader' });
+
+                document.querySelectorAll('.setup-group').forEach(group => {
+                    const setupTitle = group.querySelector('.setup-title-input').value;
+                    content.push({ text: setupTitle, style: 'setupHeader', margin: [0, 10, 0, 5] });
+
+                    const body = [
+                        [{ text: '#', style: 'tableHeader' }, { text: 'SIZE', style: 'tableHeader' }, { text: 'ANGLE', style: 'tableHeader' }, { text: 'DESCRIPTION', style: 'tableHeader' }, { text: 'TECH', style: 'tableHeader' }]
+                    ];
+
+                    group.querySelectorAll('.shot-card-item').forEach((card, index) => {
+                        body.push([
+                            (index + 1).toString(),
+                            card.querySelector('.shot-type').value,
+                            card.querySelector('.shot-angle').value,
+                            card.querySelector('.shot-desc').innerText,
+                            card.querySelector('.shot-lens').value + ' ' + card.querySelector('.shot-fps').value
+                        ]);
+                    });
+
+                    content.push({
+                        table: {
+                            headerRows: 1,
+                            widths: [20, 40, 40, '*', 60],
+                            body: body
+                        },
+                        layout: 'lightHorizontalLines',
+                        margin: [0, 0, 0, 20]
+                    });
+                });
+            }
+
+            // 2. Define Styles
+            const docDefinition = {
+                content: content,
+                styles: {
+                    titleMain: { fontSize: 24, bold: true, alignment: 'center', decoration: 'underline' },
+                    titleSub: { fontSize: 12, alignment: 'center' },
+                    sectionHeader: { fontSize: 14, bold: true, decoration: 'underline', margin: [0, 0, 0, 20] },
+                    scene: { fontSize: 12, bold: true, margin: [0, 20, 0, 5], fillColor: '#eeeeee' },
+                    action: { fontSize: 12, margin: [0, 0, 0, 10] },
+                    character: { fontSize: 12, bold: true, margin: [150, 10, 0, 0] }, // Centered-ish
+                    dialogue: { fontSize: 12, margin: [100, 0, 100, 10] },
+                    setupHeader: { fontSize: 12, bold: true, fillColor: '#eeeeee' },
+                    tableHeader: { bold: true, fontSize: 10, fillColor: '#dddddd' }
+                },
+                defaultStyle: {
+                    font: 'Roboto' 
+                }
+            };
+
+            // 3. Generate
+            try {
+                pdfMake.createPdf(docDefinition).download(`${title.replace(/ /g,'_')}_Package.pdf`);
+                closeModal('exportModal');
+                btn.innerText = originalText;
+                btn.disabled = false;
+            } catch(e) {
+                console.error(e);
+                btn.innerText = "Error";
+            }
+        });
+    }
+
+}); // END DOMContentLoaded
