@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production | Shotnest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --bg-master: #09090b; --bg-sidebar: #0f0f11; --bg-panel: #18181b; --accent: #3b82f6; --border: #27272a; --text-muted: #71717a; }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg-master); color: #e4e4e7; overflow: hidden; margin: 0; padding: 0; }
+        
+        /* SIDEBAR */
+        .sidebar-container { background: var(--bg-sidebar); border-right: 1px solid var(--border); height: 100vh; display: flex; flex-direction: column; width: 60px; z-index: 50; }
+        .nav-item { width: 40px; height: 40px; margin: 6px auto; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); transition: 0.2s; cursor: pointer; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
+        .nav-icon { font-size: 16px; }
+        
+        /* TABS */
+        .prod-tabs { display: flex; gap: 2px; background: #18181b; padding: 3px; border-radius: 8px; border: 1px solid var(--border); height: 36px; }
+        .tab-link { padding: 0 16px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; transition: 0.2s; }
+        .tab-link:hover { color: white; }
+        .tab-link.active { background: #27272a; color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+
+        /* BOARD LAYOUT */
+        .board-container { 
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 16px; 
+            padding-bottom: 60px;
+        }
+        @media (max-width: 1200px) { .board-container { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 800px) { .board-container { grid-template-columns: 1fr; } }
+        
+        /* COLUMNS */
+        .board-col { 
+            width: 100%; height: 400px; /* Slightly taller for more info */
+            background: #121212; border: 1px solid var(--border); border-radius: 10px; 
+            display: flex; flex-direction: column; transition: border-color 0.2s;
+        }
+        
+        .col-header { padding: 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border-radius: 10px 10px 0 0; }
+        .col-title-input { background: transparent; border: none; color: var(--text-muted); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; width: 100%; outline: none; }
+        .col-title-input:focus { color: white; }
+
+        .col-list { padding: 8px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        
+        /* CARDS */
+        .crew-card { 
+            background: #1c1c1f; border: 1px solid transparent; border-radius: 6px; padding: 10px; 
+            display: flex; flex-direction: column; gap: 6px; transition: all 0.1s; cursor: grab; position: relative;
+        }
+        .crew-card:hover { border-color: #3f3f46; background: #222225; transform: translateY(-1px); }
+        .crew-card:active { cursor: grabbing; }
+        
+        .card-top { display: flex; align-items: center; gap: 10px; }
+        .crew-avatar { width: 24px; height: 24px; border-radius: 6px; background: #27272a; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; color: #a1a1aa; border: 1px solid rgba(255,255,255,0.1); }
+        .card-meta { display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: #52525b; font-family: 'JetBrains Mono', monospace; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px; }
+
+        /* LIST VIEW */
+        .list-container { max-width: 900px; margin: 0 auto; padding-bottom: 60px; }
+        .list-group { margin-bottom: 16px; }
+        .list-header { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #52525b; margin-bottom: 6px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
+        .list-header::after { content: ''; flex: 1; height: 1px; background: #27272a; }
+        .list-row { background: var(--bg-panel); border: 1px solid transparent; border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; gap: 12px; transition: 0.1s; margin-bottom: 4px; }
+        .list-row:hover { border-color: #3f3f46; background: #202023; }
+        
+        /* MODAL */
+        .modal-overlay { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
+        .modal-panel { background: #121212; border: 1px solid var(--border); box-shadow: 0 20px 40px -10px black; }
+        .dark-input { background: #1c1c1f; border: 1px solid #27272a; color: white; border-radius: 6px; padding: 10px; font-size: 12px; width: 100%; outline: none; transition: 0.2s; }
+        .dark-input:focus { border-color: var(--accent); background: #27272a; }
+        .dark-label { display: block; font-size: 9px; font-weight: bold; text-transform: uppercase; color: #71717a; margin-bottom: 4px; }
+    </style>
+</head>
+<body class="flex w-full h-screen">
+
+    <aside class="sidebar-container shrink-0">
+        <div class="h-14 flex items-center justify-center border-b border-[#27272a]">
+            <div class="w-7 h-7 rounded bg-gradient-to-br from-gray-700 to-black border border-white/20 flex items-center justify-center"><i class="fa-solid fa-layer-group text-white text-[10px]"></i></div>
+        </div>
+        <div class="flex-1 flex flex-col items-center py-4 gap-1">
+            <a href="/dashboard" class="nav-item" title="Dashboard"><i class="fa-solid fa-grid-2 nav-icon"></i></a>
+            <div class="w-6 h-[1px] bg-[#27272a] my-2"></div>
+            <button id="navStudio" class="nav-item group"><i class="fa-solid fa-pen-nib nav-icon group-hover:text-blue-500 transition"></i></button>
+            <div class="nav-item active"><i class="fa-solid fa-briefcase nav-icon"></i></div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 bg-master relative">
+        <header class="h-14 border-b border-[#27272a] bg-[#0f0f11] flex items-center justify-between px-5 z-20 shrink-0">
+            <div class="flex items-center gap-5 h-full">
+                <div>
+                    <h1 class="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Production</h1>
+                    <div id="projectTitleDisplay" class="text-sm font-bold text-white leading-none truncate max-w-[150px]">Loading...</div>
+                </div>
+                <div class="h-6 w-[1px] bg-[#27272a]"></div>
+                <div class="prod-tabs">
+                    <div id="tabCrew" class="tab-link active" onclick="switchTab('crew')">Crew</div>
+                    <div id="tabGear" class="tab-link" onclick="switchTab('gear')">Gear</div>
+                    <div id="tabBudget" class="tab-link" onclick="switchTab('budget')">Budget</div>
+                </div>
+            </div>
+
+            <button id="btnMainAction" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-[11px] font-bold transition flex items-center gap-2 shadow-lg shadow-blue-500/10">
+                <i class="fa-solid fa-plus"></i> <span id="actionBtnText">New Dept</span>
+            </button>
+        </header>
+
+        <div class="flex-1 overflow-hidden p-5 relative bg-[#09090b]">
+            
+            <div id="viewCrew" class="h-full overflow-y-auto pb-4">
+                <div id="crewBoard" class="board-container"></div>
+            </div>
+
+            <div id="viewGear" class="hidden h-full overflow-y-auto">
+                <div id="gearEmptyState" class="hidden flex flex-col items-center justify-center h-64 opacity-40">
+                    <i class="fa-solid fa-camera text-3xl mb-2 text-gray-500"></i>
+                    <p class="text-xs text-gray-500 font-bold">No Equipment Added</p>
+                </div>
+                <div id="gearListContainer" class="list-container"></div>
+            </div>
+
+            <div id="viewBudget" class="hidden h-full overflow-y-auto">
+                <div class="max-w-4xl mx-auto pb-20">
+                    <div class="grid grid-cols-3 gap-3 mb-6">
+                        <div class="bg-[#18181b] p-3 rounded-lg border border-[#27272a]"><div class="text-[9px] font-bold text-gray-500 uppercase">Estimated</div><div class="text-lg font-mono font-bold text-blue-500" id="valTotalEst">$0.00</div></div>
+                        <div class="bg-[#18181b] p-3 rounded-lg border border-[#27272a]"><div class="text-[9px] font-bold text-gray-500 uppercase">Actual</div><div class="text-lg font-mono font-bold text-white" id="valTotalActual">$0.00</div></div>
+                        <div class="bg-[#18181b] p-3 rounded-lg border border-[#27272a]"><div class="text-[9px] font-bold text-gray-500 uppercase">Remaining</div><div class="text-lg font-mono font-bold text-green-500" id="valRemaining">$0.00</div></div>
+                    </div>
+                    <div id="budgetListContainer" class="space-y-1"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="universalModal" class="fixed inset-0 modal-overlay z-50 hidden items-center justify-center p-4">
+        <div class="w-full max-w-sm rounded-xl p-6 modal-panel flex flex-col scale-95 opacity-0 transform transition-all duration-200 relative">
+            <button id="closeModal" class="absolute top-5 right-5 text-gray-600 hover:text-white transition"><i class="fa-solid fa-xmark text-sm"></i></button>
+            <h3 class="text-lg font-bold text-white mb-1" id="modalTitle">New Item</h3>
+            <div class="h-[1px] w-full bg-[#27272a] my-4"></div>
+            <div id="modalFields" class="space-y-3"></div>
+            <button id="saveItemBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold text-xs shadow-lg transition mt-6">Save Item</button>
+        </div>
+    </div>
+
+    <script src="js/production.js"></script>
+</body>
+</html>
