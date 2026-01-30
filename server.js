@@ -11,6 +11,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// 🟢 FIX: Trust Render's Proxy for Secure Cookies
+app.set('trust proxy', 1);
+
 // --- DATABASE CONNECTION (SUPABASE/POSTGRES) ---
 const isProduction = process.env.NODE_ENV === 'production';
 
