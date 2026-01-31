@@ -1,11 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. CONFIGURATION ---
-    // 🔴 IMPORTANT: Paste your keys INSIDE the quotes '' below
     const SUPABASE_URL = 'https://biybxhxvbqzbthzfzubg.supabase.co'; 
     const SUPABASE_KEY = 'sb_publishable_zIZKrNotbFRygVX9MGAKQA_6JoiAPrv'; 
-    
-    // Initialize Supabase
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // --- GLOBALS ---
@@ -17,6 +14,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let projectTeam = [{ email: 'you@shotnest.com', role: 'director' }];
     let saveInterval;
     const myEmail = "User" + Math.floor(Math.random() * 100); 
+    
+    // 🔥 GLOBAL DATA STORE
+    let globalProjectData = {
+        title: "Untitled",
+        scriptHtml: "",
+        setups: [],
+        schedule: [],
+        production_crew: [],
+        production_budget: [],
+        production_gear: []
+    };
 
     // DOM Elements
     const scriptEditor = document.getElementById('scriptContent');
@@ -24,9 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const teamHeaderContainer = document.getElementById('teamAvatarContainer');
     const projectTitleInput = document.getElementById('projectTitle');
     
-    // --- 2. CONNECT TO SERVER ---
+    // --- 2. CONNECT ---
     socket.on('connect', () => {
-        console.log("Connected. Joining project:", projectId);
         socket.emit('join-project', { projectId, userEmail: myEmail });
     });
     if (socket.connected) socket.emit('join-project', { projectId, userEmail: myEmail });
@@ -34,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentRoleBadge = document.getElementById('currentRoleBadge');
     if(currentRoleBadge) currentRoleBadge.innerText = currentRole.toUpperCase() + " MODE";
     
-    // --- 3. STARTUP SEQUENCE ---
+    // --- 3. STARTUP ---
     loadProjectData();
     initTheme();
     setupAutoSave();
@@ -93,98 +100,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 6. SMART FORMATTING ENGINE ---
+    // --- 6. SMART FORMATTING ---
     function setupSmartFormatting() {
         if (!scriptEditor) return;
-
-        // Ensure editor is never truly "empty"
         scriptEditor.addEventListener('input', () => {
             if (scriptEditor.innerHTML.trim() === '' || scriptEditor.innerHTML === '<br>') {
                 scriptEditor.innerHTML = '<div class="script-action"><br></div>';
             }
         });
-
         scriptEditor.addEventListener('keydown', (e) => {
-            // TAB: Switch Type
             if (e.key === 'Tab') {
                 e.preventDefault();
                 const selection = window.getSelection();
                 if (!selection.rangeCount) return;
-                
                 let node = selection.anchorNode;
-                while (node && (node.nodeType !== 1 || node.tagName !== 'DIV') && node !== scriptEditor) {
-                    node = node.parentNode;
-                }
-                
+                while (node && (node.nodeType !== 1 || node.tagName !== 'DIV') && node !== scriptEditor) { node = node.parentNode; }
                 if (node === scriptEditor) {
                     document.execCommand('formatBlock', false, 'div');
                     node = window.getSelection().anchorNode.parentNode;
                     node.className = 'script-action';
                 }
-                
                 if (node && node !== scriptEditor) {
-                    if (node.classList.contains('script-action') || node.classList.length === 0) {
-                        node.className = 'script-char';
-                    } else if (node.classList.contains('script-char')) {
-                        node.className = 'script-action';
-                    } else if (node.classList.contains('script-dial')) {
-                        node.className = 'script-char'; 
-                    }
+                    if (node.classList.contains('script-action') || node.classList.length === 0) { node.className = 'script-char'; } 
+                    else if (node.classList.contains('script-char')) { node.className = 'script-action'; } 
+                    else if (node.classList.contains('script-dial')) { node.className = 'script-char'; }
                     socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
                 }
             } 
-            
-            // ENTER: Smart Flow
             if (e.key === 'Enter' && !e.shiftKey) { 
                 e.preventDefault();
                 const selection = window.getSelection();
                 if (!selection.rangeCount) return;
-                
                 let currentNode = selection.anchorNode;
-                while (currentNode && (currentNode.nodeType !== 1 || currentNode.tagName !== 'DIV') && currentNode !== scriptEditor) {
-                    currentNode = currentNode.parentNode;
-                }
-
+                while (currentNode && (currentNode.nodeType !== 1 || currentNode.tagName !== 'DIV') && currentNode !== scriptEditor) { currentNode = currentNode.parentNode; }
                 let nextType = 'script-action'; 
-                
                 if (currentNode && currentNode !== scriptEditor) {
                     if (currentNode.classList.contains('script-scene')) nextType = 'script-action';
                     else if (currentNode.classList.contains('script-char')) nextType = 'script-dial';
                     else if (currentNode.classList.contains('script-dial')) nextType = 'script-action';
                     else if (currentNode.classList.contains('script-action')) nextType = 'script-action';
                 }
-
                 const newDiv = document.createElement('div');
                 newDiv.className = nextType;
                 newDiv.innerHTML = '<br>'; 
-                
-                if (currentNode && currentNode !== scriptEditor && currentNode.nextSibling) {
-                    scriptEditor.insertBefore(newDiv, currentNode.nextSibling);
-                } else {
-                    scriptEditor.appendChild(newDiv);
-                }
-
+                if (currentNode && currentNode !== scriptEditor && currentNode.nextSibling) { scriptEditor.insertBefore(newDiv, currentNode.nextSibling); } 
+                else { scriptEditor.appendChild(newDiv); }
                 const range = document.createRange();
                 range.selectNodeContents(newDiv);
                 range.collapse(true);
                 selection.removeAllRanges();
                 selection.addRange(range);
-                
                 newDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
             }
         });
-        
-        // AUTO-SCENE: Detect INT./EXT.
         scriptEditor.addEventListener('input', (e) => {
             const selection = window.getSelection();
             if (!selection.rangeCount) return;
-            
             let node = selection.anchorNode;
-            while (node && (node.nodeType !== 1 || node.tagName !== 'DIV') && node !== scriptEditor) {
-                node = node.parentNode;
-            }
-            
+            while (node && (node.nodeType !== 1 || node.tagName !== 'DIV') && node !== scriptEditor) { node = node.parentNode; }
             if (node && node !== scriptEditor) {
                 const text = node.innerText.toUpperCase().trim();
                 if ((text.startsWith('INT.') || text.startsWith('EXT.') || text.startsWith('I/E')) && !node.classList.contains('script-scene')) {
@@ -198,23 +172,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 7. REAL-TIME SYNC ---
     function debounce(func, wait) {
         let timeout;
-        return function(...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), wait);
-        };
+        return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); };
     }
-
     if(scriptEditor) {
         scriptEditor.addEventListener('input', debounce(() => {
             socket.emit('script-change', { projectId, html: scriptEditor.innerHTML });
         }, 300));
     }
-
     socket.on('script-changed', (data) => {
         const isTyping = (document.activeElement === scriptEditor) && document.hasFocus();
         if (!isTyping) scriptEditor.innerHTML = data.html;
     });
-
     socket.on('shot-data-changed', (data) => {
         const card = document.querySelector(`.shot-card-item[data-id="${data.shotId}"]`);
         if (!card) return;
@@ -231,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.field === 'angle') updateField('.shot-angle', data.value);
     });
 
-    // --- 8. SHOT LIST LOGIC & SUPABASE UPLOAD ---
+    // --- 8. SHOT LIST LOGIC ---
     function createShotCard(shot = {}, container, emitEvent = true) {
         const s = {
             id: shot.id || 'shot-' + Date.now() + Math.floor(Math.random()*1000), 
@@ -244,7 +212,6 @@ document.addEventListener('DOMContentLoaded', () => {
         card.setAttribute('data-id', s.id);
         const statusColors = { 'draft': 'status-draft', 'approved': 'status-approved', 'fix': 'status-fix' };
         
-        // Check if image is present
         const imageContent = s.image 
             ? `<img src="${s.image}" class="w-full h-full object-cover">` 
             : `<i class="fa-solid fa-image text-3xl opacity-20"></i>`;
@@ -319,7 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateShotNumbers(container);
             });
 
-            // --- SUPABASE UPLOAD LOGIC ---
             const imgInput = card.querySelector('.img-input'); 
             const trigger = card.querySelector('.trigger-upload');
             const preview = card.querySelector('.upload-preview');
@@ -332,33 +298,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const file = e.target.files[0];
                 if (!file) return;
 
-                // Show loading state
                 text.innerText = "UPLOADING...";
                 text.style.opacity = "1";
                 
                 try {
                     const fileName = `${projectId}/${Date.now()}_${file.name}`;
                     const { data, error } = await supabase.storage.from('Shot-images').upload(fileName, file);
-                    
                     if (error) throw error;
-
-                    // Get Public URL
                     const { data: publicData } = supabase.storage.from('Shot-images').getPublicUrl(fileName);
                     const publicUrl = publicData.publicUrl;
-
-                    // Update UI
                     preview.innerHTML = `<img src="${publicUrl}" class="w-full h-full object-cover">`;
                     hiddenStorage.src = publicUrl;
                     text.innerText = "CHANGE IMAGE";
-                    text.style.opacity = ""; // Restore hover effect
-
-                    // Sync to Database
+                    text.style.opacity = ""; 
                     socket.emit('shot-update', { projectId, shotId: s.id, changes: { image: publicUrl } });
-
                 } catch (err) {
-                    console.error("Upload failed:", err);
                     text.innerText = "FAILED";
-                    text.style.color = "red";
                     setTimeout(() => text.innerText = "CHANGE IMAGE", 2000);
                 }
             });
@@ -380,31 +335,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 9. SETUP & SAVE ---
     const btnAddSetup = document.getElementById('btnAddSetup');
-    
     function createSetupBlock(title="New Setup", existingShots=[], emitEvent=true, explicitId=null) {
         const setupId = explicitId || 'setup-' + Date.now() + Math.floor(Math.random()*1000);
         const setupDiv = document.createElement('div'); 
         setupDiv.className = "setup-group mb-12 opacity-0";
-        setupDiv.innerHTML = `
-            <div class="flex justify-between items-end mb-4 border-b border-white/10 pb-2">
-                <input type="text" value="${title}" class="bg-transparent text-xl font-bold focus:text-blue-500 outline-none setup-title-input w-full text-current" />
-                <button class="delete-setup text-red-500 opacity-50 hover:opacity-100 transition"><i class="fa-solid fa-trash"></i></button>
-            </div>
-            <div class="shot-grid-layout sortable-list" id="${setupId}"></div>
-            <button class="add-shot-btn w-full py-4 mt-4 rounded-xl border border-dashed border-white/10 opacity-50 hover:opacity-100 hover:bg-white/5 transition flex items-center justify-center gap-2 text-current">
-                <i class="fa-solid fa-plus"></i> Add Shot
-            </button>`;
+        setupDiv.innerHTML = `<div class="flex justify-between items-end mb-4 border-b border-white/10 pb-2"><input type="text" value="${title}" class="bg-transparent text-xl font-bold focus:text-blue-500 outline-none setup-title-input w-full text-current" /><button class="delete-setup text-red-500 opacity-50 hover:opacity-100 transition"><i class="fa-solid fa-trash"></i></button></div><div class="shot-grid-layout sortable-list" id="${setupId}"></div><button class="add-shot-btn w-full py-4 mt-4 rounded-xl border border-dashed border-white/10 opacity-50 hover:opacity-100 hover:bg-white/5 transition flex items-center justify-center gap-2 text-current"><i class="fa-solid fa-plus"></i> Add Shot</button>`;
         masterContainer.appendChild(setupDiv); 
         gsap.to(setupDiv, { opacity: 1, duration: 0.4 });
-        
         if (emitEvent) socket.emit('new-setup', { projectId, title, id: setupId });
-
         const list = setupDiv.querySelector('.sortable-list'); 
         new Sortable(list, { group: 'shared-shots', animation: 150, handle: '.drag-handle', disabled: (currentRole!=='director') });
         setupDiv.querySelector('.add-shot-btn').addEventListener('click', () => createShotCard({}, list, true));
-        setupDiv.querySelector('.delete-setup').addEventListener('click', () => { 
-            if(confirm('Delete?')) { socket.emit('delete-setup', { projectId, setupId }); setupDiv.remove(); } 
-        });
+        setupDiv.querySelector('.delete-setup').addEventListener('click', () => { if(confirm('Delete?')) { socket.emit('delete-setup', { projectId, setupId }); setupDiv.remove(); } });
         if(existingShots.length > 0) existingShots.forEach(s => createShotCard(s, list, false));
     }
     if(btnAddSetup) btnAddSetup.addEventListener('click', () => createSetupBlock("New Setup"));
@@ -415,15 +357,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const setups = [];
         document.querySelectorAll('.setup-group').forEach(group => { const shots = []; group.querySelectorAll('.shot-card-item').forEach(card => { const img = card.querySelector('.shot-img-storage').src; const hasImg = img && !img.includes(window.location.href); shots.push({ id: card.getAttribute('data-id'), type: card.querySelector('.shot-type').value, angle: card.querySelector('.shot-angle').value, desc: card.querySelector('.shot-desc').innerText, lens: card.querySelector('.shot-lens').value, fps: card.querySelector('.shot-fps').value, time: card.querySelector('.shot-time').value, status: card.querySelector('.status-pill').getAttribute('data-status') || 'draft', image: hasImg ? img : '' }); }); setups.push({ title: group.querySelector('.setup-title-input').value, shots: shots }); });
         const schedule = []; document.querySelectorAll('.day-strip').forEach(day => { const title = day.querySelector('.day-title-input').value; const dayShots = []; day.querySelectorAll('.strip-item').forEach(item => dayShots.push(item.getAttribute('data-id'))); schedule.push({ title: title, shots: dayShots }); });
+        
+        // 🔄 UPDATE GLOBAL DATA
         const projectData = { id: projectId, title: document.getElementById('projectTitle').value, scriptHtml: document.getElementById('scriptContent').innerHTML, setups: setups, schedule: schedule, team: projectTeam };
-        try { const res = await fetch('/api/save-project', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(projectData) }); if(res.ok && icon) { gsap.killTweensOf(icon); gsap.to(icon, { rotation: 0, duration: 0.2, onComplete: () => { icon.className = "fa-solid fa-check text-green-500"; setTimeout(() => { icon.className = "fa-solid fa-cloud"; }, 2000); }}); } } catch (e) { if(icon) { gsap.killTweensOf(icon); icon.className = "fa-solid fa-triangle-exclamation text-red-500"; } }
+        
+        try { 
+            const res = await fetch('/api/save-project', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(projectData) }); 
+            if(res.ok) {
+                globalProjectData = await res.json(); 
+                if(icon) { 
+                    gsap.killTweensOf(icon); 
+                    gsap.to(icon, { rotation: 0, duration: 0.2, onComplete: () => { icon.className = "fa-solid fa-check text-green-500"; setTimeout(() => { icon.className = "fa-solid fa-cloud"; }, 2000); }}); 
+                } 
+            }
+        } catch (e) { if(icon) { gsap.killTweensOf(icon); icon.className = "fa-solid fa-triangle-exclamation text-red-500"; } }
     }
 
     async function loadProjectData() {
         try { 
             const res = await fetch(`/api/project/${projectId}`); 
             if(!res.ok) { createSetupBlock("Scene 1 Setup", [], false); return; } 
+            
+            // 🔄 SAVE FULL DATA GLOBALLY
             const data = await res.json(); 
+            globalProjectData = data; 
+
             document.getElementById('projectTitle').value = data.title || "Untitled"; 
             document.getElementById('scriptContent').innerHTML = data.scriptHtml || '<div class="script-action"><br></div>'; 
             
@@ -466,7 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('closeComments').addEventListener('click', () => { document.getElementById('commentDrawer').classList.remove('open'); activeShotId = null; }); function openComments(shotId) { activeShotId = shotId; document.getElementById('commentList').innerHTML = ''; addCommentBubble("Can we get a tighter angle here?", "DoP", false); document.getElementById('commentDrawer').classList.add('open'); } document.getElementById('commentInput').addEventListener('keypress', (e) => { if (e.key === 'Enter' && e.target.value) { addCommentBubble(e.target.value, "You", true); socket.emit('new-comment', { projectId, shotId: activeShotId, text: e.target.value, user: "Director" }); e.target.value = ''; }}); function addCommentBubble(text, user, isMe) { const div = document.createElement('div'); div.className = `msg-bubble ${isMe ? 'border-blue-500/30 bg-blue-500/10' : ''}`; div.innerHTML = `<div class="text-[10px] font-bold opacity-50 mb-1 flex justify-between"><span>${user}</span><span>Now</span></div><div class="leading-relaxed">${text}</div>`; document.getElementById('commentList').appendChild(div); }
     const importBtn = document.getElementById('importScriptBtn'); const fileInput = document.getElementById('scriptFileInput'); if(importBtn && fileInput) { importBtn.addEventListener('click', () => fileInput.click()); fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if(file) { const reader = new FileReader(); reader.onload = (ev) => { document.getElementById('scriptContent').innerText = ev.target.result; }; reader.readAsText(file); } }); }
     
-    // --- 11. PDF EXPORT (PDFMAKE) ---
+    // --- 11. PROFESSIONAL EXPORT (SAFE MODE) ---
     const triggerExportBtn = document.getElementById('triggerExport');
     if (triggerExportBtn) {
         triggerExportBtn.addEventListener('click', () => { 
@@ -480,113 +438,256 @@ document.addEventListener('DOMContentLoaded', () => {
         closeModalBtn.addEventListener('click', () => closeModal('exportModal')); 
     }
     
+    // Image Helper: SAFE & TIMEOUT
+    async function getBase64ImageFromUrl(imageUrl) {
+        if (!imageUrl || imageUrl.startsWith('data:')) return imageUrl;
+        try {
+            // Strict 2-second timeout to prevent "stuck" state
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 2000);
+            
+            const res = await fetch(imageUrl, { signal: controller.signal, mode: 'cors' }); 
+            clearTimeout(id);
+            
+            const blob = await res.blob();
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            console.warn("Skipping image:", imageUrl);
+            return null; // Fail gracefully
+        }
+    }
+
     const generatePdfBtn = document.getElementById('btnGeneratePdf');
     if (generatePdfBtn) {
-        generatePdfBtn.addEventListener('click', () => {
+        generatePdfBtn.addEventListener('click', async () => {
             const btn = document.getElementById('btnGeneratePdf');
-            const originalText = btn.innerText;
+            const oldText = btn.innerText;
             btn.innerText = "Generating...";
             btn.disabled = true;
 
-            const title = document.getElementById('metaTitle').value || "Untitled Project";
-            const director = document.getElementById('metaDirector').value || "";
-            const dop = document.getElementById('metaDop').value || "";
-            const date = document.getElementById('metaDate').value || "";
-            const version = document.getElementById('metaVer').value || "Draft 1.0";
-
-            // 1. Build Content Array for PDFMake
-            const content = [];
-
-            // Title Page
-            content.push({ text: title.toUpperCase(), style: 'titleMain', margin: [0, 200, 0, 10] });
-            content.push({ text: 'Written by', style: 'titleSub' });
-            content.push({ text: director, style: 'titleSub', margin: [0, 0, 0, 100] });
-            
-            if(dop) content.push({ text: `Cinematography by ${dop}`, style: 'titleSub' });
-            content.push({ text: `${version} • ${date}`, style: 'titleSub', margin: [0, 50, 0, 0], pageBreak: 'after' });
-
-            // Script Section
-            if(document.getElementById('chkScript').checked) {
-                content.push({ text: 'SCREENPLAY', style: 'sectionHeader' });
-                
-                const scriptDiv = document.getElementById('scriptContent');
-                Array.from(scriptDiv.children).forEach(node => {
-                    let style = 'action'; // default
-                    let text = node.innerText || '';
-                    if(!text.trim()) return;
-
-                    if (node.classList.contains('script-scene')) style = 'scene';
-                    else if (node.classList.contains('script-char')) style = 'character';
-                    else if (node.classList.contains('script-dial')) style = 'dialogue';
-                    
-                    content.push({ text: text, style: style });
-                });
-                content.push({ text: '', pageBreak: 'after' });
-            }
-
-            // Shot List Section
-            if(document.getElementById('chkShots').checked) {
-                content.push({ text: 'SHOT LIST', style: 'sectionHeader' });
-
-                document.querySelectorAll('.setup-group').forEach(group => {
-                    const setupTitle = group.querySelector('.setup-title-input').value;
-                    content.push({ text: setupTitle, style: 'setupHeader', margin: [0, 10, 0, 5] });
-
-                    const body = [
-                        [{ text: '#', style: 'tableHeader' }, { text: 'SIZE', style: 'tableHeader' }, { text: 'ANGLE', style: 'tableHeader' }, { text: 'DESCRIPTION', style: 'tableHeader' }, { text: 'TECH', style: 'tableHeader' }]
-                    ];
-
-                    group.querySelectorAll('.shot-card-item').forEach((card, index) => {
-                        body.push([
-                            (index + 1).toString(),
-                            card.querySelector('.shot-type').value,
-                            card.querySelector('.shot-angle').value,
-                            card.querySelector('.shot-desc').innerText,
-                            card.querySelector('.shot-lens').value + ' ' + card.querySelector('.shot-fps').value
-                        ]);
-                    });
-
-                    content.push({
-                        table: {
-                            headerRows: 1,
-                            widths: [20, 40, 40, '*', 60],
-                            body: body
-                        },
-                        layout: 'lightHorizontalLines',
-                        margin: [0, 0, 0, 20]
-                    });
-                });
-            }
-
-            // 2. Define Styles
-            const docDefinition = {
-                content: content,
-                styles: {
-                    titleMain: { fontSize: 24, bold: true, alignment: 'center', decoration: 'underline' },
-                    titleSub: { fontSize: 12, alignment: 'center' },
-                    sectionHeader: { fontSize: 14, bold: true, decoration: 'underline', margin: [0, 0, 0, 20] },
-                    scene: { fontSize: 12, bold: true, margin: [0, 20, 0, 5], fillColor: '#eeeeee' },
-                    action: { fontSize: 12, margin: [0, 0, 0, 10] },
-                    character: { fontSize: 12, bold: true, margin: [150, 10, 0, 0] }, // Centered-ish
-                    dialogue: { fontSize: 12, margin: [100, 0, 100, 10] },
-                    setupHeader: { fontSize: 12, bold: true, fillColor: '#eeeeee' },
-                    tableHeader: { bold: true, fontSize: 10, fillColor: '#dddddd' }
-                },
-                defaultStyle: {
-                    font: 'Roboto' 
-                }
-            };
-
-            // 3. Generate
             try {
-                pdfMake.createPdf(docDefinition).download(`${title.replace(/ /g,'_')}_Package.pdf`);
-                closeModal('exportModal');
-                btn.innerText = originalText;
-                btn.disabled = false;
-            } catch(e) {
-                console.error(e);
+                // Ensure PDFMake VFS is initialized
+                if (typeof pdfMake.vfs === 'undefined' && typeof window.pdfMake.vfs !== 'undefined') {
+                    pdfMake.vfs = window.pdfMake.vfs;
+                }
+
+                // FORCE REFRESH DATA
+                try {
+                    const res = await fetch(`/api/project/${projectId}`);
+                    if (res.ok) globalProjectData = await res.json();
+                } catch(err) { console.error("Using cached data."); }
+
+                const title = document.getElementById('metaTitle').value || "Untitled Project";
+                const director = document.getElementById('metaDirector').value || "Director";
+                const dop = document.getElementById('metaDop').value || "DoP";
+                const date = document.getElementById('metaDate').value || new Date().toLocaleDateString();
+                const version = document.getElementById('metaVer').value || "Draft 1.0";
+
+                const content = [];
+
+                // 1. Title Page
+                content.push({ text: title.toUpperCase(), style: 'titleMain', margin: [0, 200, 0, 10] });
+                content.push({ text: 'Written by', style: 'titleSub' });
+                content.push({ text: director, style: 'titleSub', margin: [0, 0, 0, 100] });
+                if(dop) content.push({ text: `Cinematography by ${dop}`, style: 'titleSub' });
+                content.push({ text: `${version} • ${date}`, style: 'titleSub', margin: [0, 50, 0, 0], pageBreak: 'after' });
+
+                // 2. Script
+                if(document.getElementById('chkScript').checked) {
+                    content.push({ text: 'SCREENPLAY', style: 'sectionHeader' });
+                    const scriptDiv = document.getElementById('scriptContent');
+                    if (scriptDiv && scriptDiv.children.length > 0) {
+                        Array.from(scriptDiv.children).forEach(node => {
+                            let style = 'action'; 
+                            let text = node.innerText || '';
+                            if(!text.trim()) return;
+                            
+                            // Check for formatting classes
+                            if (node.classList.contains('script-scene')) style = 'scene';
+                            else if (node.classList.contains('script-char')) style = 'character';
+                            else if (node.classList.contains('script-dial')) style = 'dialogue';
+                            
+                            // Formatting for Character
+                            if (style === 'character') text = text.toUpperCase();
+                            
+                            content.push({ text: text, style: style });
+                        });
+                    } else { content.push({ text: 'No script content available.', italics: true }); }
+                    content.push({ text: '', pageBreak: 'after' });
+                }
+
+                // 3. Shot List (Optimized Image Loading)
+                if(document.getElementById('chkShots').checked) {
+                    content.push({ text: 'SHOT LIST', style: 'sectionHeader' });
+                    const setups = globalProjectData.setups || [];
+                    
+                    if (setups.length > 0) {
+                        for (const setup of setups) {
+                            content.push({ text: setup.title || "Untitled Setup", style: 'setupHeader', margin: [0, 10, 0, 5] });
+                            
+                            const body = [[
+                                { text: '#', style: 'tableHeader' }, 
+                                { text: 'VISUAL', style: 'tableHeader' }, 
+                                { text: 'SIZE', style: 'tableHeader' }, 
+                                { text: 'ANGLE', style: 'tableHeader' }, 
+                                { text: 'DESCRIPTION', style: 'tableHeader' }, 
+                                { text: 'TECH', style: 'tableHeader' }
+                            ]];
+
+                            if (setup.shots && setup.shots.length > 0) {
+                                // PRE-FETCH ALL IMAGES IN PARALLEL (FAST)
+                                const shotImages = await Promise.all(setup.shots.map(s => {
+                                    if(s.image && s.image.length > 10) return getBase64ImageFromUrl(s.image);
+                                    return Promise.resolve(null);
+                                }));
+
+                                setup.shots.forEach((s, i) => {
+                                    let imageCell = { text: 'No Image', fontSize: 8, color: 'gray', alignment: 'center', margin: [0, 10] };
+                                    
+                                    if(shotImages[i]) {
+                                        imageCell = { image: shotImages[i], width: 60, height: 35, fit: [60, 35], alignment: 'center' };
+                                    }
+
+                                    body.push([
+                                        (i + 1).toString(),
+                                        imageCell,
+                                        s.type || '-',
+                                        s.angle || '-',
+                                        s.desc || '-',
+                                        `${s.lens || '-'} ${s.fps || '-'}`
+                                    ]);
+                                });
+                                
+                                content.push({
+                                    table: {
+                                        headerRows: 1,
+                                        widths: [20, 70, 30, 30, '*', 50],
+                                        body: body
+                                    },
+                                    layout: {
+                                        fillColor: function (rowIndex, node, columnIndex) {
+                                            return (rowIndex % 2 === 0) ? '#f3f4f6' : null;
+                                        }
+                                    },
+                                    margin: [0, 0, 0, 20]
+                                });
+                            } else {
+                                content.push({ text: "No shots in this setup.", margin: [0,0,0,10], italics: true, fontSize: 10 });
+                            }
+                        }
+                    } else { content.push({ text: "No shots created yet.", italics: true }); }
+                    content.push({ text: '', pageBreak: 'after' });
+                }
+
+                // 4. Crew & Budget
+                if(document.getElementById('chkProd').checked) {
+                    content.push({ text: 'PRODUCTION SUMMARY', style: 'sectionHeader' });
+                    const crew = globalProjectData.production_crew || [];
+                    if (crew.length > 0) {
+                        content.push({ text: 'Crew List', style: 'setupHeader', margin: [0, 10, 0, 5] });
+                        const cBody = [[{ text: 'Name', bold: true }, { text: 'Role', bold: true }, { text: 'Rate', bold: true }]];
+                        crew.forEach(c => cBody.push([c.name || '-', c.role || '-', c.rate ? `$${c.rate}/day` : '-']));
+                        content.push({ table: { headerRows: 1, widths: ['*', '*', 'auto'], body: cBody }, layout: 'lightHorizontalLines', margin: [0, 0, 0, 20] });
+                    }
+                    const budget = globalProjectData.production_budget || [];
+                    if (budget.length > 0) {
+                        content.push({ text: 'Budget', style: 'setupHeader', margin: [0, 10, 0, 5] });
+                        const bBody = [[{ text: 'Item', bold: true }, { text: 'Category', bold: true }, { text: 'Cost', bold: true, alignment: 'right' }]];
+                        let total = 0;
+                        budget.forEach(b => {
+                            bBody.push([b.desc || 'Expense', b.category || '-', { text: `$${b.estCost || 0}`, alignment: 'right' }]);
+                            total += parseFloat(b.estCost) || 0;
+                        });
+                        bBody.push([{ text: 'TOTAL', bold: true }, '', { text: `$${total.toFixed(2)}`, bold: true, alignment: 'right' }]);
+                        content.push({ table: { headerRows: 1, widths: ['*', 'auto', 80], body: bBody }, layout: 'lightHorizontalLines', margin: [0, 0, 0, 20] });
+                    }
+                }
+
+                // 5. Schedule
+                if(document.getElementById('chkSchedule').checked) {
+                    const schedule = globalProjectData.schedule || [];
+                    if (schedule.length > 0) {
+                        content.push({ text: '', pageBreak: 'after' });
+                        content.push({ text: 'SHOOTING SCHEDULE', style: 'sectionHeader' });
+                        schedule.forEach(day => {
+                            content.push({ text: (day.title || "Day").toUpperCase(), style: 'setupHeader', margin: [0, 10, 0, 5] });
+                            const shotsCount = Array.isArray(day.shots) ? day.shots.length : 0;
+                            content.push({ text: `${shotsCount} Scenes Scheduled`, margin: [0, 0, 0, 10], italics: true });
+                        });
+                    }
+                }
+
+                const docDefinition = {
+                    content: content,
+                    footer: function(currentPage, pageCount) { 
+                        return { text: currentPage.toString() + ' of ' + pageCount, alignment: 'center', margin: [0, 10, 0, 0], fontSize: 10, color: 'gray' }; 
+                    },
+                    styles: {
+                        titleMain: { fontSize: 24, bold: true, alignment: 'center', decoration: 'underline' },
+                        titleSub: { fontSize: 14, alignment: 'center' },
+                        sectionHeader: { fontSize: 18, bold: true, decoration: 'underline', margin: [0, 0, 0, 20] },
+                        setupHeader: { fontSize: 14, bold: true, fillColor: '#eeeeee' },
+                        // Script Formatting (Safe Mode: No Custom Font, Just Margins)
+                        scene: { fontSize: 12, bold: true, margin: [0, 15, 0, 5] },
+                        action: { fontSize: 12, margin: [0, 0, 0, 10] },
+                        character: { fontSize: 12, bold: true, margin: [180, 10, 0, 0] }, 
+                        dialogue: { fontSize: 12, margin: [110, 0, 110, 10] }, 
+                        tableHeader: { bold: true, fontSize: 10, fillColor: '#e5e7eb' }
+                    },
+                    defaultStyle: { font: 'Roboto' } // Safe fallback
+                };
+
+                // SAFE DOWNLOAD METHOD: Blob URL
+                const pdfDocGenerator = pdfMake.createPdf(docDefinition);
+                pdfDocGenerator.getBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${title.replace(/ /g,'_')}_Production_Binder.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    btn.innerText = "Downloaded!";
+                    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    btn.classList.add('bg-green-600', 'hover:bg-green-700');
+                    
+                    setTimeout(() => {
+                        closeModal('exportModal');
+                        btn.innerText = oldText;
+                        btn.disabled = false;
+                        btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                        btn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    }, 2000);
+                });
+
+            } catch (err) {
+                console.error("PDF GEN ERROR:", err);
+                alert("Export Failed: " + err.message);
                 btn.innerText = "Error";
+                btn.disabled = false;
             }
+        });
+    }
+
+    // --- 12. MANUAL SAVE BUTTON ---
+    const forceSaveBtn = document.getElementById('forceSaveBtn');
+    if(forceSaveBtn) {
+        forceSaveBtn.addEventListener('click', async () => {
+            const originalText = forceSaveBtn.innerHTML;
+            forceSaveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving...`;
+            await saveProject();
+            forceSaveBtn.innerHTML = `<i class="fa-solid fa-check"></i> Saved!`;
+            forceSaveBtn.classList.replace('bg-green-600', 'bg-blue-600'); 
+            setTimeout(() => { 
+                forceSaveBtn.innerHTML = originalText; 
+                forceSaveBtn.classList.replace('bg-blue-600', 'bg-green-600');
+            }, 2000);
         });
     }
 

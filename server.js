@@ -68,6 +68,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'home.htm
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.get('/dashboard', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 app.get('/studio', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'studio.html')));
+app.get('/calendar', requireAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'calendar.html')));
 
 // --- API: AUTH ---
 

@@ -53,7 +53,7 @@
             .sidebar-btn span { font-size: 9px; }
         }
         
-        /* --- INPUT STYLES (FIXED CONTRAST) --- */
+        /* --- INPUT STYLES --- */
         .pro-input { 
             width: 100%; 
             background-color: rgba(255, 255, 255, 0.08) !important; 
@@ -125,14 +125,17 @@
             </div>
             
             <div class="flex items-center gap-2 md:gap-3">
-                <div id="teamAvatarContainer" class="flex -space-x-2 mr-2">
-                    </div>
+                <div id="teamAvatarContainer" class="flex -space-x-2 mr-2"></div>
 
                 <button id="triggerTeam" class="w-9 h-9 md:h-9 md:px-4 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition text-xs font-bold flex items-center justify-center gap-2 text-current">
                     <i class="fa-solid fa-user-plus"></i> <span class="hidden md:inline">Share</span>
                 </button>
                 <div class="w-[1px] h-6 bg-white/10 mx-1"></div>
-                <button id="saveBtn" class="w-9 h-9 rounded-full hover:bg-white/5 flex items-center justify-center transition text-gray-400 hover:text-current"><i class="fa-solid fa-cloud"></i></button>
+                
+                <button id="forceSaveBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition flex items-center gap-2 mr-2 shadow-lg shadow-green-500/20">
+                    <i class="fa-solid fa-save"></i> <span class="hidden md:inline">Save</span>
+                </button>
+
                 <button id="triggerExport" class="bg-blue-600 hover:bg-blue-700 text-white w-9 h-9 md:w-auto md:px-5 md:py-2 rounded-full text-xs font-bold transition shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
                     <i class="fa-solid fa-share-nodes"></i> <span class="hidden md:inline">Export</span>
                 </button>
@@ -217,7 +220,7 @@
             
             <div class="text-center border-b border-white/10 pb-6">
                 <h3 class="text-2xl font-bold mb-2 text-white">Export Project</h3>
-                <p class="text-sm text-gray-400">Generate a professional PDF package.</p>
+                <p class="text-sm text-gray-400">Generate a comprehensive production binder.</p>
             </div>
 
             <div class="grid grid-cols-2 gap-5">
@@ -235,28 +238,35 @@
                 </div>
                 <div>
                     <label class="pro-label">Date</label>
-                    <input type="date" id="metaDate" class="pro-input" style="color-scheme: dark;"> 
+                    <input type="text" id="metaDate" class="pro-input" placeholder="YYYY-MM-DD">
                 </div>
                 <div>
                     <label class="pro-label">Version</label>
-                    <input type="text" id="metaVer" class="pro-input" value="Draft 1.0">
+                    <input type="text" id="metaVer" class="pro-input" placeholder="Draft 1.0">
                 </div>
             </div>
 
-            <div class="flex gap-4">
-                <label class="flex items-center gap-3 p-4 flex-1 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
+            <div class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2">Include Sections</div>
+            <div class="grid grid-cols-2 gap-3">
+                <label class="flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
                     <input type="checkbox" id="chkScript" checked class="pro-checkbox">
-                    <div class="flex-1">
-                        <div class="text-sm font-bold text-white group-hover:text-blue-400 transition">Script</div>
-                    </div>
-                    <i class="fa-solid fa-file-lines text-blue-500 text-lg"></i>
+                    <div class="flex-1 font-bold text-xs">Script</div>
+                    <i class="fa-solid fa-file-lines text-blue-500"></i>
                 </label>
-                <label class="flex items-center gap-3 p-4 flex-1 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
+                <label class="flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
                     <input type="checkbox" id="chkShots" checked class="pro-checkbox">
-                    <div class="flex-1">
-                        <div class="text-sm font-bold text-white group-hover:text-purple-400 transition">Shot List</div>
-                    </div>
-                    <i class="fa-solid fa-clapperboard text-purple-500 text-lg"></i>
+                    <div class="flex-1 font-bold text-xs">Shot List</div>
+                    <i class="fa-solid fa-clapperboard text-purple-500"></i>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
+                    <input type="checkbox" id="chkSchedule" checked class="pro-checkbox">
+                    <div class="flex-1 font-bold text-xs">Schedule</div>
+                    <i class="fa-regular fa-calendar text-green-500"></i>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer bg-white/5 transition group">
+                    <input type="checkbox" id="chkProd" checked class="pro-checkbox">
+                    <div class="flex-1 font-bold text-xs">Crew & Budget</div>
+                    <i class="fa-solid fa-briefcase text-orange-500"></i>
                 </label>
             </div>
 
@@ -273,8 +283,10 @@
 
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
+    
     <script src="js/create.js"></script>
 </body>
 </html>
