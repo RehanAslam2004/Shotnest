@@ -1,0 +1,11 @@
+function requireAuth(req, res, next) {
+    if (req.session && req.session.user) {
+        return next();
+    }
+    if (req.originalUrl.startsWith('/api/') && !req.originalUrl.includes('login') && !req.originalUrl.includes('register')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    res.redirect('/login');
+}
+
+module.exports = { requireAuth };

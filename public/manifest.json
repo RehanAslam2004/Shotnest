@@ -1,0 +1,21 @@
+{
+  "name": "Shotnest | Production OS",
+  "short_name": "Shotnest",
+  "start_url": "/dashboard.html",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#3b82f6",
+  "description": "The Operating System for Modern Filmmakers. Write, Plan, and Schedule your production.",
+  "icons": [
+    {
+      "src": "/dashboard-preview.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/dashboard-preview.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

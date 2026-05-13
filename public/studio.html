@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Studio | Shotnest</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#3b82f6">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -81,7 +83,9 @@
         .script-scene { font-weight: 800 !important; text-transform: uppercase !important; margin-top: 24px !important; margin-bottom: 8px !important; background: rgba(125, 125, 125, 0.1); padding: 8px 12px; border-radius: 4px; display: block; }
         .script-action { text-align: left !important; margin-bottom: 12px !important; display: block; }
         .script-char { text-align: center !important; font-weight: 700 !important; text-transform: uppercase !important; margin-top: 16px !important; margin-bottom: 0 !important; width: 60%; margin-left: auto; margin-right: auto; display: block; }
+        .script-paren { text-align: center !important; width: 50%; margin-left: auto; margin-right: auto; font-style: italic; font-size: 0.9em; margin-bottom: 4px !important; display: block; }
         .script-dial { text-align: center !important; width: 70%; margin-left: auto; margin-right: auto; margin-bottom: 12px !important; display: block; }
+        .script-trans { text-align: right !important; text-transform: uppercase !important; margin-top: 20px !important; margin-bottom: 20px !important; display: block; }
 
         /* --- UTILS --- */
         .shot-grid-layout { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding-bottom: 100px; }
@@ -216,14 +220,14 @@
     </div>
 
     <div id="exportModal" class="modal-container fixed inset-0 bg-black/80 backdrop-blur-sm z-50 items-center justify-center p-4">
-        <div class="w-full max-w-lg rounded-3xl p-8 shadow-2xl modal-content flex flex-col gap-6 border border-white/10" style="background: #18181b; color: white;">
+        <div class="w-full max-w-md rounded-3xl p-6 shadow-2xl modal-content flex flex-col gap-4 border border-white/10 max-h-[90vh] overflow-y-auto scrollbar-hide" style="background: #18181b; color: white;">
             
-            <div class="text-center border-b border-white/10 pb-6">
-                <h3 class="text-2xl font-bold mb-2 text-white">Export Project</h3>
-                <p class="text-sm text-gray-400">Generate a comprehensive production binder.</p>
+            <div class="text-center border-b border-white/10 pb-4">
+                <h3 class="text-xl font-bold mb-1 text-white">Export Project</h3>
+                <p class="text-xs text-gray-400">Generate your production binder.</p>
             </div>
 
-            <div class="grid grid-cols-2 gap-5">
+            <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
                     <label class="pro-label">Project Title</label>
                     <input type="text" id="metaTitle" class="pro-input" placeholder="e.g. The Big Scene">
@@ -287,6 +291,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
     
-    <script src="js/create.js"></script>
+    <script type="module" src="js/create.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW registered'))
+                    .catch(err => console.log('SW registration failed', err));
+            });
+        }
+    </script>
 </body>
 </html>
